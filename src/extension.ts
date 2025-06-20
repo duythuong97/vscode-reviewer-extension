@@ -1,6 +1,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
+import { marked } from "marked";
 
 class SettingsPanelProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "ai-reviewer-settings";
@@ -73,6 +74,7 @@ class SettingsPanelProvider implements vscode.WebviewViewProvider {
 			<meta charset="UTF-8">
 			<meta name="viewport" content="width=device-width, initial-scale=1.0">
 			<title>AI Reviewer Settings</title>
+			<script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js"></script>
 			<style>
 				body {
 					padding: 20px;
@@ -124,6 +126,131 @@ class SettingsPanelProvider implements vscode.WebviewViewProvider {
 					background-color: var(--vscode-notificationsInfoBackground);
 					color: var(--vscode-notificationsInfoForeground);
 				}
+
+				/* Markdown Editor Styles */
+				.markdown-editor {
+					border: 1px solid var(--vscode-input-border);
+					border-radius: 4px;
+					background-color: var(--vscode-input-background);
+				}
+
+				.editor-tabs {
+					display: flex;
+					border-bottom: 1px solid var(--vscode-input-border);
+					background-color: var(--vscode-editor-background);
+				}
+
+				.tab-btn {
+					background: none;
+					border: none;
+					padding: 8px 16px;
+					cursor: pointer;
+					color: var(--vscode-foreground);
+					border-bottom: 2px solid transparent;
+					font-size: 12px;
+				}
+
+				.tab-btn:hover {
+					background-color: var(--vscode-list-hoverBackground);
+				}
+
+				.tab-btn.active {
+					border-bottom-color: var(--vscode-button-background);
+					background-color: var(--vscode-input-background);
+				}
+
+				.tab-content {
+					position: relative;
+				}
+
+				.tab-pane {
+					display: none;
+					padding: 8px;
+				}
+
+				.tab-pane.active {
+					display: block;
+				}
+
+				.markdown-preview {
+					min-height: 120px;
+					max-height: 300px;
+					overflow-y: auto;
+					padding: 8px;
+					background-color: var(--vscode-editor-background);
+					border: 1px solid var(--vscode-input-border);
+					border-radius: 4px;
+					font-size: 13px;
+					line-height: 1.4;
+				}
+
+				/* Markdown Preview Styling */
+				.markdown-preview h1,
+				.markdown-preview h2,
+				.markdown-preview h3,
+				.markdown-preview h4,
+				.markdown-preview h5,
+				.markdown-preview h6 {
+					margin: 8px 0 4px 0;
+					color: var(--vscode-editor-foreground);
+				}
+
+				.markdown-preview h1 { font-size: 16px; }
+				.markdown-preview h2 { font-size: 14px; }
+				.markdown-preview h3 { font-size: 13px; }
+
+				.markdown-preview p {
+					margin: 4px 0;
+				}
+
+				.markdown-preview ul,
+				.markdown-preview ol {
+					margin: 4px 0;
+					padding-left: 20px;
+				}
+
+				.markdown-preview li {
+					margin: 2px 0;
+				}
+
+				.markdown-preview code {
+					background-color: var(--vscode-textCodeBlock-background);
+					color: var(--vscode-textCodeBlock-foreground);
+					padding: 2px 4px;
+					border-radius: 3px;
+					font-family: var(--vscode-editor-font-family);
+					font-size: 12px;
+				}
+
+				.markdown-preview pre {
+					background-color: var(--vscode-textCodeBlock-background);
+					border: 1px solid var(--vscode-input-border);
+					border-radius: 4px;
+					padding: 8px;
+					margin: 8px 0;
+					overflow-x: auto;
+				}
+
+				.markdown-preview pre code {
+					background: none;
+					padding: 0;
+					border-radius: 0;
+				}
+
+				.markdown-preview blockquote {
+					border-left: 3px solid var(--vscode-input-border);
+					margin: 8px 0;
+					padding-left: 12px;
+					color: var(--vscode-descriptionForeground);
+				}
+
+				.markdown-preview strong {
+					font-weight: bold;
+				}
+
+				.markdown-preview em {
+					font-style: italic;
+				}
 			</style>
 		</head>
 		<body>
@@ -134,7 +261,20 @@ class SettingsPanelProvider implements vscode.WebviewViewProvider {
 			</div>
 			<div class="form-group">
 				<label for="codingConvention">Coding Convention:</label>
-				<textarea id="codingConvention" placeholder="Enter your coding convention rules"></textarea>
+				<div class="markdown-editor">
+					<div class="editor-tabs">
+						<button type="button" class="tab-btn active" data-tab="edit">Edit</button>
+						<button type="button" class="tab-btn" data-tab="preview">Preview</button>
+					</div>
+					<div class="tab-content">
+						<div class="tab-pane active" id="edit-tab">
+							<textarea id="codingConvention" placeholder="Enter your coding convention rules in markdown format&#10;&#10;Example:&#10;# Coding Standards&#10;&#10;## Naming Conventions&#10;- Use camelCase for variables and functions&#10;- Use PascalCase for classes&#10;&#10;## Code Style&#10;- Use 2 spaces for indentation&#10;- Always use semicolons&#10;&#10;## Best Practices&#10;- Write meaningful variable names&#10;- Add comments for complex logic"></textarea>
+						</div>
+						<div class="tab-pane" id="preview-tab">
+							<div id="markdown-preview" class="markdown-preview"></div>
+						</div>
+					</div>
+				</div>
 			</div>
 			<div class="form-group">
 				<label for="llmEndpoint">LLM API Endpoint:</label>
@@ -190,6 +330,57 @@ class SettingsPanelProvider implements vscode.WebviewViewProvider {
 					setTimeout(() => {
 						status.style.display = 'none';
 					}, 3000);
+				});
+
+				// Markdown Editor Tab Functionality
+				document.querySelectorAll('.tab-btn').forEach(btn => {
+					btn.addEventListener('click', () => {
+						const tabName = btn.getAttribute('data-tab');
+
+						// Update active tab button
+						document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+						btn.classList.add('active');
+
+						// Update active tab content
+						document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+						document.getElementById(tabName + '-tab').classList.add('active');
+
+						// If switching to preview, update the preview content
+						if (tabName === 'preview') {
+							updateMarkdownPreview();
+						}
+					});
+				});
+
+				// Update markdown preview
+				function updateMarkdownPreview() {
+					const markdownText = document.getElementById('codingConvention').value;
+					const previewElement = document.getElementById('markdown-preview');
+
+					if (markdownText.trim() === '') {
+						previewElement.innerHTML = '<em>No content to preview</em>';
+						return;
+					}
+
+					// Use marked library for markdown to HTML conversion (synchronous)
+					try {
+						const html = marked.parse(markdownText);
+						previewElement.innerHTML = html;
+					} catch (error) {
+						previewElement.innerHTML = '<em>Error rendering markdown</em>';
+						console.error('Markdown preview error:', error);
+					}
+				}
+
+				// Auto-update preview when typing (with debounce)
+				let previewTimeout;
+				document.getElementById('codingConvention').addEventListener('input', () => {
+					clearTimeout(previewTimeout);
+					previewTimeout = setTimeout(() => {
+						if (document.getElementById('preview-tab').classList.contains('active')) {
+							updateMarkdownPreview();
+						}
+					}, 300);
 				});
 			</script>
 		</body>
@@ -269,16 +460,21 @@ class ChatPanelProvider implements vscode.WebviewViewProvider {
               lineEnd: lineEnd,
             });
 
-            // Use streaming LLM call
+            // Use streaming LLM call with markdown conversion
+            let fullResponse = "";
             await callLLMStream(
               apiToken,
               prompt,
               llmEndpoint,
               llmModel,
-              (chunk) => {
+              async (chunk) => {
+                fullResponse += chunk;
+                // Convert accumulated markdown to HTML
+                const htmlContent = await marked(fullResponse);
                 webviewView.webview.postMessage({
                   type: "streamChunk",
-                  chunk: chunk,
+                  chunk: htmlContent,
+                  isHtml: true,
                 });
               }
             );
@@ -322,6 +518,18 @@ class ChatPanelProvider implements vscode.WebviewViewProvider {
             });
           }
           break;
+        case "applyCodeBlock": {
+          const activeEditor = vscode.window.activeTextEditor;
+          if (activeEditor) {
+            await activeEditor.edit(editBuilder => {
+              editBuilder.replace(activeEditor.selection, data.code);
+            });
+            vscode.window.showInformationMessage("Code block applied to editor.");
+          } else {
+            vscode.window.showErrorMessage("No active editor to apply code block.");
+          }
+          break;
+        }
       }
     });
 
@@ -434,6 +642,102 @@ class ChatPanelProvider implements vscode.WebviewViewProvider {
 					color: var(--vscode-foreground);
 					border: 1px solid var(--vscode-input-border);
 					border-bottom-left-radius: 4px;
+				}
+
+				/* Markdown styling */
+				.message.ai .message-bubble h1,
+				.message.ai .message-bubble h2,
+				.message.ai .message-bubble h3,
+				.message.ai .message-bubble h4,
+				.message.ai .message-bubble h5,
+				.message.ai .message-bubble h6 {
+					margin: 8px 0 4px 0;
+					color: var(--vscode-editor-foreground);
+				}
+
+				.message.ai .message-bubble h1 { font-size: 18px; }
+				.message.ai .message-bubble h2 { font-size: 16px; }
+				.message.ai .message-bubble h3 { font-size: 14px; }
+
+				.message.ai .message-bubble p {
+					margin: 4px 0;
+					line-height: 1.4;
+				}
+
+				.message.ai .message-bubble ul,
+				.message.ai .message-bubble ol {
+					margin: 4px 0;
+					padding-left: 20px;
+				}
+
+				.message.ai .message-bubble li {
+					margin: 2px 0;
+				}
+
+				.message.ai .message-bubble code {
+					background-color: var(--vscode-textCodeBlock-background);
+					color: var(--vscode-textCodeBlock-foreground);
+					padding: 2px 4px;
+					border-radius: 3px;
+					font-family: var(--vscode-editor-font-family);
+					font-size: 12px;
+				}
+
+				.message.ai .message-bubble pre {
+					background-color: var(--vscode-textCodeBlock-background);
+					border: 1px solid var(--vscode-input-border);
+					border-radius: 4px;
+					padding: 8px;
+					margin: 8px 0;
+					overflow-x: auto;
+				}
+
+				.message.ai .message-bubble pre code {
+					background: none;
+					padding: 0;
+					border-radius: 0;
+				}
+
+				.message.ai .message-bubble blockquote {
+					border-left: 3px solid var(--vscode-input-border);
+					margin: 8px 0;
+					padding-left: 12px;
+					color: var(--vscode-descriptionForeground);
+				}
+
+				.message.ai .message-bubble strong {
+					font-weight: bold;
+				}
+
+				.message.ai .message-bubble em {
+					font-style: italic;
+				}
+
+				.message.ai .message-bubble a {
+					color: var(--vscode-textLink-foreground);
+					text-decoration: none;
+				}
+
+				.message.ai .message-bubble a:hover {
+					text-decoration: underline;
+				}
+
+				.message.ai .message-bubble table {
+					border-collapse: collapse;
+					width: 100%;
+					margin: 8px 0;
+				}
+
+				.message.ai .message-bubble th,
+				.message.ai .message-bubble td {
+					border: 1px solid var(--vscode-input-border);
+					padding: 4px 8px;
+					text-align: left;
+				}
+
+				.message.ai .message-bubble th {
+					background-color: var(--vscode-editor-background);
+					font-weight: bold;
 				}
 
 				.message-time {
@@ -576,7 +880,13 @@ class ChatPanelProvider implements vscode.WebviewViewProvider {
 
 					const bubbleDiv = document.createElement('div');
 					bubbleDiv.className = 'message-bubble';
-					bubbleDiv.textContent = content;
+
+					if (isUser) {
+						bubbleDiv.textContent = content;
+					} else {
+						// For AI messages, content might be HTML
+						bubbleDiv.innerHTML = content;
+					}
 
 					const timeDiv = document.createElement('div');
 					timeDiv.className = 'message-time';
@@ -646,10 +956,17 @@ class ChatPanelProvider implements vscode.WebviewViewProvider {
 							// Append chunk to the current streaming message
 							const streamingBubble = document.getElementById('currentStreamingBubble');
 							if (streamingBubble) {
-								streamingBubble.textContent += message.chunk;
+								if (message.isHtml) {
+									// Replace the entire content with the new HTML
+									streamingBubble.innerHTML = message.chunk;
+								} else {
+									// Append text content
+									streamingBubble.textContent += message.chunk;
+								}
 								// Scroll to bottom to follow the text
 								document.getElementById('messagesContainer').scrollTop = document.getElementById('messagesContainer').scrollHeight;
 							}
+							if (message.isHtml) setTimeout(addApplyButtonsToCodeBlocks, 0);
 							break;
 
 						case 'streamComplete':
@@ -668,7 +985,7 @@ class ChatPanelProvider implements vscode.WebviewViewProvider {
 
 						case 'error':
 							hideTypingIndicator();
-							addMessage(\`Error: \${message.content}\`, false);
+							addMessage(\`<strong>Error:</strong> \${message.content}\`, false);
 							document.getElementById('sendButton').disabled = false;
 							document.getElementById('sendButton').textContent = 'Send Message';
 							break;
@@ -711,6 +1028,36 @@ class ChatPanelProvider implements vscode.WebviewViewProvider {
 						document.getElementById('sendButton').click();
 					}
 				});
+
+				// After each AI message is rendered, add Apply buttons to code blocks
+				function addApplyButtonsToCodeBlocks() {
+					const codeBlocks = document.querySelectorAll('.message.ai .message-bubble pre code');
+					codeBlocks.forEach((codeBlock) => {
+						// Avoid adding multiple buttons
+						if (codeBlock.parentElement.querySelector('.apply-btn')) return;
+						const btn = document.createElement('button');
+						btn.textContent = 'Apply';
+						btn.className = 'apply-btn';
+						btn.style.marginLeft = '8px';
+						btn.style.float = 'right';
+						btn.onclick = (e) => {
+							e.stopPropagation();
+							vscode.postMessage({
+								type: 'applyCodeBlock',
+								code: codeBlock.textContent
+							});
+						};
+						codeBlock.parentElement.style.position = 'relative';
+						codeBlock.parentElement.appendChild(btn);
+					});
+				}
+
+				// Patch addMessage to call addApplyButtonsToCodeBlocks after rendering
+				const originalAddMessage = addMessage;
+				addMessage = function(content, isUser = false) {
+					originalAddMessage(content, isUser);
+					if (!isUser) setTimeout(addApplyButtonsToCodeBlocks, 0);
+				};
 			</script>
 		</body>
 		</html>`;
@@ -956,12 +1303,15 @@ export function activate(context: vscode.ExtensionContext) {
             console.log(prompt);
             console.log("=== End Prompt Debug ===");
 
-            const response = await callLLM(apiToken, prompt, endpoint, model);
+            const response: string = await callLLM(apiToken, prompt, endpoint, model);
 
             progress.report({ increment: 100 });
 
+            // Convert markdown response to HTML for better display
+            const htmlResponse: string = await marked(response);
+
             // Show the review in a new document
-            await showReviewResults(response, document.fileName);
+            await showReviewResults(htmlResponse, document.fileName);
           } catch (error) {
             vscode.window.showErrorMessage(
               `Review failed: ${
@@ -1009,8 +1359,7 @@ export function activate(context: vscode.ExtensionContext) {
         apiToken ? "***" + apiToken.slice(-4) : "Not set"
       }\nCoding Convention: ${
         codingConvention || "Not set"
-      }\nLLM Endpoint: ${llmEndpoint}\nLLM Model: ${llmModel}`;
-      vscode.window.showInformationMessage(message);
+      }\nLLM Endpoint: ${llmEndpoint}\nLLM Model: ${llmModel}`
     }
   );
 
