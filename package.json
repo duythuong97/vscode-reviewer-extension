@@ -46,7 +46,7 @@
         {
           "id": "ai-reviewer-sidebar",
           "title": "AI Reviewer",
-          "icon": "$(gear)"
+          "icon": "$(comment-discussion)"
         }
       ]
     },
@@ -55,6 +55,11 @@
         {
           "id": "ai-reviewer-settings",
           "name": "Settings",
+          "type": "webview"
+        },
+        {
+          "id": "ai-reviewer-chat",
+          "name": "Chat",
           "type": "webview"
         }
       ]

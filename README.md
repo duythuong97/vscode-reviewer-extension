@@ -5,10 +5,11 @@ A Visual Studio Code extension that provides AI-powered code review using local 
 ## Features
 
 - 🤖 **AI-Powered Code Review**: Uses local LLM models (like CodeLlama) for intelligent code analysis
+- 💬 **Interactive Chat**: Chat with AI about your code with real-time code selection support
 - 📝 **Custom Coding Conventions**: Define your own coding standards and rules
 - 🔧 **Configurable LLM Settings**: Support for different LLM endpoints and models
 - 🎯 **Comprehensive Analysis**: Reviews code quality, security, performance, and adherence to conventions
-- 💻 **Seamless Integration**: Works directly within VS Code with a dedicated settings panel
+- 💻 **Seamless Integration**: Works directly within VS Code with dedicated settings and chat panels
 - 📊 **Structured Feedback**: Provides clear, organized review results in markdown format
 
 ## Requirements
@@ -67,6 +68,31 @@ The extension provides a dedicated settings panel in the VS Code sidebar where y
 - Write coding conventions with markdown support
 - Set LLM endpoint and model preferences
 - Save and manage all settings
+
+### Chat Panel
+
+The extension includes an interactive chat panel that allows you to:
+
+- **Real-time Code Selection**: Select code in your editor and see a chip showing the file name and line range
+- **Contextual Questions**: Ask questions about your selected code or general programming questions
+- **AI Responses**: Get instant responses from your configured LLM model
+- **Code Context**: The AI automatically includes your selected code in the conversation context
+
+#### How to Use the Chat:
+
+1. **Open the Chat Panel**: Click on the "Chat" tab in the AI Reviewer sidebar
+2. **Select Code**: Highlight any code in your editor - a chip will appear showing the file and line range
+3. **Ask Questions**: Type your question in the message input area
+4. **Send Message**: Click "Send Message" or press Enter to get an AI response
+5. **View Response**: The AI response will appear in the response area above the input
+
+#### Chat Features:
+
+- **Code Selection Detection**: Automatically detects when you select code in the editor
+- **File Context**: Shows filename and line range for selected code
+- **Rich Responses**: AI responses are formatted and easy to read
+- **Error Handling**: Clear error messages if something goes wrong
+- **Loading States**: Visual feedback while waiting for AI responses
 
 ### Coding Conventions
 
