@@ -1,0 +1,106 @@
+{
+  "name": "ai-reviewer",
+  "displayName": "AI Reviewer",
+  "description": "AI review PR with my convention",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.101.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "AI Reviewer",
+      "properties": {
+        "aiReviewer.apiToken": {
+          "type": "string",
+          "default": "",
+          "description": "API token for AI review service",
+          "scope": "application"
+        },
+        "aiReviewer.codingConvention": {
+          "type": "string",
+          "default": "",
+          "description": "Coding convention rules for AI review",
+          "scope": "application"
+        },
+        "aiReviewer.llmEndpoint": {
+          "type": "string",
+          "default": "http://localhost:11434/api/generate",
+          "description": "LLM API endpoint URL",
+          "scope": "application"
+        },
+        "aiReviewer.llmModel": {
+          "type": "string",
+          "default": "llama3",
+          "description": "LLM model name to use for code review",
+          "scope": "application"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ai-reviewer-sidebar",
+          "title": "AI Reviewer",
+          "icon": "$(gear)"
+        }
+      ]
+    },
+    "views": {
+      "ai-reviewer-sidebar": [
+        {
+          "id": "ai-reviewer-settings",
+          "name": "Settings",
+          "type": "webview"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "ai-reviewer.reviewFile",
+        "title": "AI Reviewer: Review Current File"
+      },
+      {
+        "command": "ai-reviewer.showSettings",
+        "title": "AI Reviewer: Show Settings"
+      },
+      {
+        "command": "ai-reviewer.openSettingsPanel",
+        "title": "Open Settings Panel",
+        "icon": "$(gear)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "ai-reviewer.openSettingsPanel",
+          "when": "view == ai-reviewer-settings",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.101.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@typescript-eslint/eslint-plugin": "^8.31.1",
+    "@typescript-eslint/parser": "^8.31.1",
+    "eslint": "^9.25.1",
+    "typescript": "^5.8.3",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
