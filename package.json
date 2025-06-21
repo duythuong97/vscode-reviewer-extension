@@ -38,6 +38,22 @@
           "default": "llama3",
           "description": "LLM model name to use for code review",
           "scope": "application"
+        },
+        "aiReviewer.suggestionDisplayMode": {
+          "type": "string",
+          "enum": [
+            "panel",
+            "inline"
+          ],
+          "default": "panel",
+          "description": "How to display convention suggestions: 'panel' for a separate webview panel, 'inline' for inline diagnostics in the editor",
+          "scope": "application"
+        },
+        "aiReviewer.baseBranch": {
+          "type": "string",
+          "default": "develop",
+          "description": "Base branch to compare against when reviewing PR changes (e.g., main, master, develop)",
+          "scope": "application"
         }
       }
     },
@@ -70,6 +86,18 @@
         "title": "AI Reviewer: Review Current File"
       },
       {
+        "command": "ai-reviewer.reviewAndSuggest",
+        "title": "AI Reviewer: Review and Suggest"
+      },
+      {
+        "command": "ai-reviewer.reviewPR",
+        "title": "AI Reviewer: Review PR"
+      },
+      {
+        "command": "ai-reviewer.showDebugOutput",
+        "title": "AI Reviewer: Show Debug Output"
+      },
+      {
         "command": "ai-reviewer.showSettings",
         "title": "AI Reviewer: Show Settings"
       },
@@ -85,6 +113,39 @@
           "command": "ai-reviewer.openSettingsPanel",
           "when": "view == ai-reviewer-settings",
           "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "ai-reviewer.reviewFile",
+          "when": "editorTextFocus",
+          "group": "ai-reviewer@1"
+        },
+        {
+          "command": "ai-reviewer.reviewAndSuggest",
+          "when": "editorTextFocus",
+          "group": "ai-reviewer@2"
+        },
+        {
+          "command": "ai-reviewer.reviewPR",
+          "when": "resourceScheme == file",
+          "group": "ai-reviewer@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "ai-reviewer.reviewFile",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "ai-reviewer.reviewAndSuggest",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "ai-reviewer.reviewPR"
+        },
+        {
+          "command": "ai-reviewer.showDebugOutput"
         }
       ]
     }
