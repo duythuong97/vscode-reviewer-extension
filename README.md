@@ -11,6 +11,7 @@ A Visual Studio Code extension that provides AI-powered code review using local 
 - 🎯 **Comprehensive Analysis**: Reviews code quality, security, performance, and adherence to conventions
 - 💻 **Seamless Integration**: Works directly within VS Code with dedicated settings and chat panels
 - 📊 **Structured Feedback**: Provides clear, organized review results in markdown format
+- 👻 **AI Ghost Text**: Real-time AI-powered code suggestions as you type
 
 ## Requirements
 
@@ -43,6 +44,7 @@ This extension contributes the following settings:
 * `aiReviewer.codingConvention`: Your custom coding convention rules (supports markdown formatting)
 * `aiReviewer.llmEndpoint`: LLM API endpoint URL (default: `http://localhost:11434/api/generate`)
 * `aiReviewer.llmModel`: LLM model name to use for code review (default: `llama3`)
+* `aiReviewer.ghostTextEnabled`: Enable AI-powered ghost text suggestions while typing (default: `true`)
 
 ## Usage
 
@@ -59,6 +61,9 @@ This extension contributes the following settings:
 - `AI Reviewer: Review Current File` - Analyzes the currently open file
 - `AI Reviewer: Show Settings` - Displays current configuration
 - `Open Settings Panel` - Opens the settings panel in the sidebar
+- `AI Reviewer: Toggle Ghost Text` - Enable/disable AI ghost text suggestions
+- `Accept AI Ghost Suggestion` - Accept the current ghost text suggestion
+- `AI Reviewer: AI Prompt Popup` - Open popup to ask AI and insert response in editor (Cmd+Shift+I)
 
 ### Settings Panel
 
@@ -93,6 +98,73 @@ The extension includes an interactive chat panel that allows you to:
 - **Rich Responses**: AI responses are formatted and easy to read
 - **Error Handling**: Clear error messages if something goes wrong
 - **Loading States**: Visual feedback while waiting for AI responses
+
+### AI Ghost Text
+
+The extension provides intelligent code suggestions as you type, powered by your configured LLM model. These suggestions appear as ghost text (grayed-out text) in your editor, helping you write better code faster.
+
+#### How Ghost Text Works:
+
+1. **Real-time Suggestions**: As you type, the AI analyzes your code context and provides suggestions
+2. **Context-Aware**: Takes into account your coding conventions and the surrounding code
+3. **Debounced**: Suggestions are generated after a brief pause to avoid excessive API calls
+4. **Acceptable**: Press Tab to accept a suggestion, or continue typing to ignore it
+
+#### Ghost Text Features:
+
+- **Smart Context**: Analyzes the previous 5 lines of code for context
+- **Language-Specific**: Provides suggestions tailored to the programming language you're using
+- **Convention-Aware**: Respects your defined coding conventions
+- **Toggle Control**: Enable/disable ghost text from settings or command palette
+- **Performance Optimized**: Uses debouncing to prevent excessive API calls
+
+#### Using Ghost Text:
+
+1. **Enable the Feature**: Go to AI Reviewer settings and check "Enable AI Ghost Text Suggestions"
+2. **Start Typing**: Begin writing code in any supported language
+3. **See Suggestions**: Gray ghost text will appear showing AI suggestions
+4. **Accept Suggestions**: Press Tab to accept a suggestion, or continue typing to ignore
+5. **Toggle On/Off**: Use the command "AI Reviewer: Toggle Ghost Text" to quickly enable/disable
+
+#### Ghost Text Commands:
+
+- `AI Reviewer: Toggle Ghost Text` - Quickly enable/disable ghost text suggestions
+- `Accept AI Ghost Suggestion` - Accept the current ghost text suggestion (usually bound to Tab)
+
+### AI Prompt Popup
+
+The extension provides a quick way to ask the AI questions and get responses directly in your editor using a keyboard shortcut.
+
+#### How to Use:
+
+1. **Keyboard Shortcut**: Press `Cmd+Shift+I` (or `Ctrl+Shift+I` on Windows/Linux)
+2. **Enter Your Prompt**: Type your question or request in the popup
+3. **Get AI Response**: The AI response will be inserted at your cursor position
+4. **Context Awareness**: If you have text selected, it will be included as context
+
+#### Features:
+
+- **Quick Access**: Simple keyboard shortcut for instant AI interaction
+- **Context Support**: Automatically includes selected code as context
+- **Smart Insertion**: Inserts at cursor or replaces selected text
+- **Progress Indicator**: Shows "AI is thinking..." while processing
+- **Error Handling**: Clear error messages if something goes wrong
+
+#### Use Cases:
+
+- **Code Generation**: "Write a function to sort an array"
+- **Code Review**: "Review this code for potential issues"
+- **Bug Fixing**: "Help me fix this error"
+- **Documentation**: "Add comments to this function"
+- **Refactoring**: "Refactor this code to be more efficient"
+
+#### Example Workflow:
+
+1. Select some code you want to ask about
+2. Press `Cmd+Shift+I`
+3. Type: "Explain what this code does"
+4. Press Enter
+5. AI response is inserted in your editor
 
 ### Coding Conventions
 

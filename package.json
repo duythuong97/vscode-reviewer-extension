@@ -54,6 +54,12 @@
           "default": "develop",
           "description": "Base branch to compare against when reviewing PR changes (e.g., main, master, develop)",
           "scope": "application"
+        },
+        "aiReviewer.ghostTextEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable AI-powered ghost text suggestions while typing",
+          "scope": "application"
         }
       }
     },
@@ -105,6 +111,22 @@
         "command": "ai-reviewer.openSettingsPanel",
         "title": "Open Settings Panel",
         "icon": "$(gear)"
+      },
+      {
+        "command": "ai-reviewer.acceptGhostSuggestion",
+        "title": "Accept AI Ghost Suggestion"
+      },
+      {
+        "command": "ai-reviewer.toggleGhostText",
+        "title": "AI Reviewer: Toggle Ghost Text"
+      },
+      {
+        "command": "ai-reviewer.testGhostText",
+        "title": "AI Reviewer: Test Ghost Text"
+      },
+      {
+        "command": "ai-reviewer.aiPromptPopup",
+        "title": "AI Reviewer: AI Prompt Popup"
       }
     ],
     "menus": {
@@ -146,10 +168,26 @@
         },
         {
           "command": "ai-reviewer.showDebugOutput"
+        },
+        {
+          "command": "ai-reviewer.toggleGhostText"
+        },
+        {
+          "command": "ai-reviewer.testGhostText"
+        },
+        {
+          "command": "ai-reviewer.aiPromptPopup"
         }
       ]
     }
   },
+  "keybindings": [
+    {
+      "command": "ai-reviewer.aiPromptPopup",
+      "key": "cmd+shift+i",
+      "when": "editorTextFocus"
+    }
+  ],
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
