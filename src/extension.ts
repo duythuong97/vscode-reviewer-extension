@@ -2,1652 +2,17 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
 import { marked } from "marked";
-
-// Debug logger using VS Code output channel
-let debugOutputChannel: vscode.OutputChannel;
-
-function logDebug(message: string, data?: any) {
-  if (!debugOutputChannel) {
-    debugOutputChannel = vscode.window.createOutputChannel("AI Reviewer Debug");
-  }
-
-  const timestamp = new Date().toISOString();
-  const logMessage = `[${timestamp}] ${message}`;
-
-  debugOutputChannel.appendLine(logMessage);
-
-  if (data) {
-    if (typeof data === "object") {
-      debugOutputChannel.appendLine(JSON.stringify(data, null, 2));
-    } else {
-      debugOutputChannel.appendLine(String(data));
-    }
-  }
-
-  debugOutputChannel.appendLine(""); // Empty line for readability
-}
-
-class SettingsPanelProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = "ai-reviewer-settings";
-
-  constructor(private readonly _extensionUri: vscode.Uri) {}
-
-  public resolveWebviewView(
-    webviewView: vscode.WebviewView,
-    context: vscode.WebviewViewResolveContext,
-    _token: vscode.CancellationToken
-  ) {
-    webviewView.webview.options = {
-      enableScripts: true,
-      localResourceRoots: [this._extensionUri],
-    };
-
-    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
-
-    // Handle messages from the webview
-    webviewView.webview.onDidReceiveMessage(async (data) => {
-      switch (data.type) {
-        case "getSettings": {
-          const config = vscode.workspace.getConfiguration("aiReviewer");
-          webviewView.webview.postMessage({
-            type: "settings",
-            apiToken: config.get<string>("apiToken", ""),
-            codingConvention: config.get<string>("codingConvention", ""),
-            llmEndpoint: config.get<string>(
-              "llmEndpoint",
-              "http://localhost:11434/api/generate"
-            ),
-            llmModel: config.get<string>("llmModel", "llama3"),
-            suggestionDisplayMode: config.get<string>(
-              "suggestionDisplayMode",
-              "panel"
-            ),
-            baseBranch: config.get<string>("baseBranch", "main"),
-            ghostTextEnabled: config.get<boolean>("ghostTextEnabled", true),
-          });
-          break;
-        }
-        case "updateSettings": {
-          const workspaceConfig =
-            vscode.workspace.getConfiguration("aiReviewer");
-          await workspaceConfig.update(
-            "apiToken",
-            data.apiToken,
-            vscode.ConfigurationTarget.Global
-          );
-          await workspaceConfig.update(
-            "codingConvention",
-            data.codingConvention,
-            vscode.ConfigurationTarget.Global
-          );
-          await workspaceConfig.update(
-            "llmEndpoint",
-            data.llmEndpoint,
-            vscode.ConfigurationTarget.Global
-          );
-          await workspaceConfig.update(
-            "llmModel",
-            data.llmModel,
-            vscode.ConfigurationTarget.Global
-          );
-          await workspaceConfig.update(
-            "suggestionDisplayMode",
-            data.suggestionDisplayMode,
-            vscode.ConfigurationTarget.Global
-          );
-          await workspaceConfig.update(
-            "baseBranch",
-            data.baseBranch,
-            vscode.ConfigurationTarget.Global
-          );
-          await workspaceConfig.update(
-            "ghostTextEnabled",
-            data.ghostTextEnabled,
-            vscode.ConfigurationTarget.Global
-          );
-          vscode.window.showInformationMessage(
-            "Settings updated successfully!"
-          );
-          break;
-        }
-      }
-    });
-  }
-
-  private _getHtmlForWebview(webview: vscode.Webview) {
-    return `<!DOCTYPE html>
-		<html lang="en">
-		<head>
-			<meta charset="UTF-8">
-			<meta name="viewport" content="width=device-width, initial-scale=1.0">
-			<title>AI Reviewer Settings</title>
-			<script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js"></script>
-			<style>
-				body {
-					padding: 20px;
-					font-family: var(--vscode-font-family);
-					color: var(--vscode-foreground);
-					background-color: var(--vscode-editor-background);
-				}
-				.form-group {
-					margin-bottom: 15px;
-				}
-				label {
-					display: block;
-					margin-bottom: 5px;
-					font-weight: bold;
-				}
-				input, textarea {
-					width: 100%;
-					padding: 8px;
-					border: 1px solid var(--vscode-input-border);
-					background-color: var(--vscode-input-background);
-					color: var(--vscode-input-foreground);
-					border-radius: 4px;
-					box-sizing: border-box;
-				}
-				select {
-					width: 100%;
-					padding: 8px;
-					border: 1px solid var(--vscode-input-border);
-					background-color: var(--vscode-input-background);
-					color: var(--vscode-input-foreground);
-					border-radius: 4px;
-					box-sizing: border-box;
-				}
-				textarea {
-					resize: vertical;
-					min-height: 80px;
-				}
-				button {
-					background-color: var(--vscode-button-background);
-					color: var(--vscode-button-foreground);
-					border: none;
-					padding: 8px 16px;
-					border-radius: 4px;
-					cursor: pointer;
-					width: 100%;
-					margin-top: 10px;
-				}
-				button:hover {
-					background-color: var(--vscode-button-hoverBackground);
-				}
-				.status {
-					margin-top: 10px;
-					padding: 8px;
-					border-radius: 4px;
-					font-size: 12px;
-				}
-				.status.success {
-					background-color: var(--vscode-notificationsInfoBackground);
-					color: var(--vscode-notificationsInfoForeground);
-				}
-
-				/* Markdown Editor Styles */
-				.markdown-editor {
-					border: 1px solid var(--vscode-input-border);
-					border-radius: 4px;
-					background-color: var(--vscode-input-background);
-				}
-
-				.editor-tabs {
-					display: flex;
-					border-bottom: 1px solid var(--vscode-input-border);
-					background-color: var(--vscode-editor-background);
-				}
-
-				.tab-btn {
-					background: none;
-					border: none;
-					padding: 8px 16px;
-					cursor: pointer;
-					color: var(--vscode-foreground);
-					border-bottom: 2px solid transparent;
-					font-size: 12px;
-				}
-
-				.tab-btn:hover {
-					background-color: var(--vscode-list-hoverBackground);
-				}
-
-				.tab-btn.active {
-					border-bottom-color: var(--vscode-button-background);
-					background-color: var(--vscode-input-background);
-				}
-
-				.tab-content {
-					position: relative;
-				}
-
-				.tab-pane {
-					display: none;
-					padding: 8px;
-				}
-
-				.tab-pane.active {
-					display: block;
-				}
-
-				.markdown-preview {
-					min-height: 600px;
-					overflow-y: auto;
-					padding: 8px;
-					background-color: var(--vscode-editor-background);
-					border: 1px solid var(--vscode-input-border);
-					border-radius: 4px;
-					font-size: 13px;
-					line-height: 1.4;
-				}
-
-				/* Markdown Preview Styling */
-				.markdown-preview h1,
-				.markdown-preview h2,
-				.markdown-preview h3,
-				.markdown-preview h4,
-				.markdown-preview h5,
-				.markdown-preview h6 {
-					margin: 8px 0 4px 0;
-					color: var(--vscode-editor-foreground);
-				}
-
-				.markdown-preview h1 { font-size: 16px; }
-				.markdown-preview h2 { font-size: 14px; }
-				.markdown-preview h3 { font-size: 13px; }
-
-				.markdown-preview p {
-					margin: 4px 0;
-				}
-
-				.markdown-preview ul,
-				.markdown-preview ol {
-					margin: 4px 0;
-					padding-left: 20px;
-				}
-
-				.markdown-preview li {
-					margin: 2px 0;
-				}
-
-				.markdown-preview code {
-					background-color: var(--vscode-textCodeBlock-background);
-					color: var(--vscode-textCodeBlock-foreground);
-					padding: 2px 4px;
-					border-radius: 3px;
-					font-family: var(--vscode-editor-font-family);
-					font-size: 12px;
-				}
-
-				.markdown-preview pre {
-					background-color: var(--vscode-textCodeBlock-background);
-					border: 1px solid var(--vscode-input-border);
-					border-radius: 4px;
-					padding: 8px;
-					margin: 8px 0;
-					overflow-x: auto;
-				}
-
-				.markdown-preview pre code {
-					background: none;
-					padding: 0;
-					border-radius: 0;
-				}
-
-				.markdown-preview blockquote {
-					border-left: 3px solid var(--vscode-input-border);
-					margin: 8px 0;
-					padding-left: 12px;
-					color: var(--vscode-descriptionForeground);
-				}
-
-				.markdown-preview strong {
-					font-weight: bold;
-				}
-
-				.markdown-preview em {
-					font-style: italic;
-				}
-			</style>
-		</head>
-		<body>
-			<h3>AI Reviewer Settings</h3>
-			<div class="form-group">
-				<label for="apiToken">API Token:</label>
-				<input type="password" id="apiToken" placeholder="Enter your API token">
-			</div>
-            <div class="form-group">
-				<label for="llmEndpoint">LLM API Endpoint:</label>
-				<input type="text" id="llmEndpoint" placeholder="http://localhost:11434/api/generate">
-			</div>
-			<div class="form-group">
-				<label for="llmModel">LLM Model:</label>
-				<input type="text" id="llmModel" placeholder="llama3">
-			</div>
-			<div class="form-group">
-				<label for="suggestionDisplayMode">Suggestion Display Mode:</label>
-				<select id="suggestionDisplayMode">
-					<option value="panel">Panel (Separate webview)</option>
-					<option value="inline">Inline (Editor diagnostics)</option>
-				</select>
-			</div>
-			<div class="form-group">
-				<label for="baseBranch">Base Branch for PR Review:</label>
-				<input type="text" id="baseBranch" placeholder="main">
-			</div>
-			<div class="form-group">
-				<label for="ghostTextEnabled">
-					<input type="checkbox" id="ghostTextEnabled" style="width: auto; margin-right: 8px;">
-					Enable AI Ghost Text Suggestions
-				</label>
-				<small style="color: var(--vscode-descriptionForeground); display: block; margin-top: 4px;">
-					Show AI-powered code suggestions as ghost text while typing
-				</small>
-			</div>
-			<div class="form-group">
-				<label for="codingConvention">Coding Convention:</label>
-				<div class="markdown-editor">
-					<div class="editor-tabs">
-						<button type="button" class="tab-btn active" data-tab="edit">Edit</button>
-						<button type="button" class="tab-btn" data-tab="preview">Preview</button>
-					</div>
-					<div class="tab-content">
-						<div class="tab-pane active" id="edit-tab">
-							<textarea rows="20" id="codingConvention" placeholder="Enter your coding convention rules in markdown format&#10;&#10;Example:&#10;# Coding Standards&#10;&#10;## Naming Conventions&#10;- Use camelCase for variables and functions&#10;- Use PascalCase for classes&#10;&#10;## Code Style&#10;- Use 2 spaces for indentation&#10;- Always use semicolons&#10;&#10;## Best Practices&#10;- Write meaningful variable names&#10;- Add comments for complex logic"></textarea>
-						</div>
-						<div class="tab-pane" id="preview-tab">
-							<div id="markdown-preview" class="markdown-preview"></div>
-						</div>
-					</div>
-				</div>
-			</div>
-
-			<button id="saveBtn">Save Settings</button>
-			<div id="status" class="status" style="display: none;"></div>
-
-			<script>
-				const vscode = acquireVsCodeApi();
-
-				// Request current settings when page loads
-				vscode.postMessage({ type: 'getSettings' });
-
-				// Listen for settings from extension
-				window.addEventListener('message', event => {
-					const message = event.data;
-					switch (message.type) {
-						case 'settings':
-							document.getElementById('apiToken').value = message.apiToken || '';
-							document.getElementById('codingConvention').value = message.codingConvention || '';
-							document.getElementById('llmEndpoint').value = message.llmEndpoint || '';
-							document.getElementById('llmModel').value = message.llmModel || '';
-							document.getElementById('suggestionDisplayMode').value = message.suggestionDisplayMode || 'panel';
-							document.getElementById('baseBranch').value = message.baseBranch || 'main';
-							document.getElementById('ghostTextEnabled').checked = message.ghostTextEnabled || false;
-							break;
-					}
-				});
-
-				// Handle save button click
-				document.getElementById('saveBtn').addEventListener('click', () => {
-					const apiToken = document.getElementById('apiToken').value;
-					const codingConvention = document.getElementById('codingConvention').value;
-					const llmEndpoint = document.getElementById('llmEndpoint').value;
-					const llmModel = document.getElementById('llmModel').value;
-					const suggestionDisplayMode = document.getElementById('suggestionDisplayMode').value;
-					const baseBranch = document.getElementById('baseBranch').value;
-					const ghostTextEnabled = document.getElementById('ghostTextEnabled').checked;
-
-					vscode.postMessage({
-						type: 'updateSettings',
-						apiToken: apiToken,
-						codingConvention: codingConvention,
-						llmEndpoint: llmEndpoint,
-						llmModel: llmModel,
-						suggestionDisplayMode: suggestionDisplayMode,
-						baseBranch: baseBranch,
-						ghostTextEnabled: ghostTextEnabled
-					});
-
-					// Show success message
-					const status = document.getElementById('status');
-					status.textContent = 'Settings saved successfully!';
-					status.className = 'status success';
-					status.style.display = 'block';
-
-					setTimeout(() => {
-						status.style.display = 'none';
-					}, 3000);
-				});
-
-				// Markdown Editor Tab Functionality
-				document.querySelectorAll('.tab-btn').forEach(btn => {
-					btn.addEventListener('click', () => {
-						const tabName = btn.getAttribute('data-tab');
-
-						// Update active tab button
-						document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-						btn.classList.add('active');
-
-						// Update active tab content
-						document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
-						document.getElementById(tabName + '-tab').classList.add('active');
-
-						// If switching to preview, update the preview content
-						if (tabName === 'preview') {
-							updateMarkdownPreview();
-						}
-					});
-				});
-
-				// Update markdown preview
-				function updateMarkdownPreview() {
-					const markdownText = document.getElementById('codingConvention').value;
-					const previewElement = document.getElementById('markdown-preview');
-
-					if (markdownText.trim() === '') {
-						previewElement.innerHTML = '<em>No content to preview</em>';
-						return;
-					}
-
-					// Use marked library for markdown to HTML conversion (synchronous)
-					try {
-						const html = marked.parse(markdownText);
-						previewElement.innerHTML = html;
-					} catch (error) {
-						previewElement.innerHTML = '<em>Error rendering markdown</em>';
-						console.error('Markdown preview error:', error);
-					}
-				}
-
-				// Auto-update preview when typing (with debounce)
-				let previewTimeout;
-				document.getElementById('codingConvention').addEventListener('input', () => {
-					clearTimeout(previewTimeout);
-					previewTimeout = setTimeout(() => {
-						if (document.getElementById('preview-tab').classList.contains('active')) {
-							updateMarkdownPreview();
-						}
-					}, 300);
-				});
-			</script>
-		</body>
-		</html>`;
-  }
-}
-
-class ChatPanelProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = "ai-reviewer-chat";
-
-  constructor(private readonly _extensionUri: vscode.Uri) {}
-
-  public resolveWebviewView(
-    webviewView: vscode.WebviewView,
-    context: vscode.WebviewViewResolveContext,
-    _token: vscode.CancellationToken
-  ) {
-    webviewView.webview.options = {
-      enableScripts: true,
-      localResourceRoots: [this._extensionUri],
-    };
-
-    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
-
-    // Handle messages from the webview
-    webviewView.webview.onDidReceiveMessage(async (data) => {
-      switch (data.type) {
-        case "sendMessage":
-          try {
-            const config = vscode.workspace.getConfiguration("aiReviewer");
-            const apiToken = config.get<string>("apiToken", "");
-            const llmEndpoint = config.get<string>(
-              "llmEndpoint",
-              "http://localhost:11434/api/generate"
-            );
-            const llmModel = config.get<string>("llmModel", "llama3");
-
-            // Get all accumulated code selections
-            const codeSelections = data.codeSelections || [];
-            let selectedCode = "";
-            let fileName = "";
-            let lineStart = 0;
-            let lineEnd = 0;
-
-            if (codeSelections.length > 0) {
-              // Combine all code selections
-              selectedCode = codeSelections
-                .map(
-                  (selection: any) =>
-                    `File: ${selection.fileName} (lines ${selection.lineStart}-${selection.lineEnd})\n\`\`\`\n${selection.selectedCode}\n\`\`\`
-`
-                )
-                .join("\n\n");
-
-              // Use the first selection for metadata
-              fileName = codeSelections[0].fileName;
-              lineStart = codeSelections[0].lineStart;
-              lineEnd = codeSelections[codeSelections.length - 1].lineEnd;
-            }
-
-            // Prepare prompt with selected code and user message
-            let prompt = data.message;
-            if (selectedCode) {
-              prompt = `${selectedCode}\n\nUser Question: ${data.message}`;
-            }
-
-            // Debug: Log the prompt to console
-            logDebug("=== AI Reviewer Chat - Prompt Debug ===", {
-              selectedCode: selectedCode
-                ? `Yes (${codeSelections.length} selections)`
-                : "No",
-              userMessage: data.message,
-              prompt:
-                prompt.substring(0, 300) + (prompt.length > 300 ? "..." : ""),
-            });
-
-            // Send initial response message to create the AI message bubble
-            webviewView.webview.postMessage({
-              type: "startStreaming",
-              codeSelections: codeSelections,
-              fileName: fileName,
-              lineStart: lineStart,
-              lineEnd: lineEnd,
-            });
-
-            // Create a cancellation token for this request
-            const cancellationTokenSource = new vscode.CancellationTokenSource();
-
-            // Store the cancellation token source so it can be cancelled from the webview
-            (webviewView as any).currentCancellationTokenSource = cancellationTokenSource;
-
-            // Use cancellable streaming LLM call with raw text streaming
-            try {
-              await callLLMStreamWithCancellation(
-                apiToken,
-                prompt,
-                llmEndpoint,
-                llmModel,
-                cancellationTokenSource.token,
-                async (chunk: string) => {
-                  // Send raw text chunk for smooth streaming
-                  webviewView.webview.postMessage({
-                    type: "streamChunk",
-                    chunk: chunk,
-                    isHtml: false,
-                  });
-                }
-              );
-
-              // Send completion message
-              webviewView.webview.postMessage({
-                type: "streamComplete",
-              });
-            } catch (error) {
-              if (error instanceof Error && error.message === 'Request cancelled by user') {
-                webviewView.webview.postMessage({
-                  type: "streamCancelled",
-                });
-              } else {
-                throw error;
-              }
-            } finally {
-              // Clean up the cancellation token source
-              (webviewView as any).currentCancellationTokenSource = undefined;
-              cancellationTokenSource.dispose();
-            }
-          } catch (error) {
-            webviewView.webview.postMessage({
-              type: "error",
-              content:
-                "Error: " +
-                (error instanceof Error ? error.message : "Unknown error"),
-            });
-          }
-          break;
-        case "cancelStreaming":
-          // Handle cancellation request from webview
-          const currentCancellationTokenSource = (webviewView as any).currentCancellationTokenSource;
-          if (currentCancellationTokenSource) {
-            currentCancellationTokenSource.cancel();
-            (webviewView as any).currentCancellationTokenSource = undefined;
-          }
-          break;
-        case "addCodeSelection":
-          // Handle adding a new code selection
-          const activeEditor = vscode.window.activeTextEditor;
-          if (activeEditor && !activeEditor.selection.isEmpty) {
-            const selectedCode = activeEditor.document.getText(
-              activeEditor.selection
-            );
-            const fileName =
-              activeEditor.document.fileName.split(/[\\/]/).pop() || "";
-            const lineStart = activeEditor.selection.start.line + 1;
-            const lineEnd = activeEditor.selection.end.line + 1;
-
-            webviewView.webview.postMessage({
-              type: "codeSelectionAdded",
-              selection: {
-                selectedCode: selectedCode,
-                fileName: fileName,
-                lineStart: lineStart,
-                lineEnd: lineEnd,
-              },
-            });
-          }
-          break;
-        case "clearCodeSelections":
-          // Handle clearing all code selections
-          webviewView.webview.postMessage({
-            type: "codeSelectionsCleared",
-          });
-          break;
-        case "getSelectedCode":
-          const currentEditor = vscode.window.activeTextEditor;
-          if (currentEditor && !currentEditor.selection.isEmpty) {
-            const selectedCode = currentEditor.document.getText(
-              currentEditor.selection
-            );
-            const fileName =
-              currentEditor.document.fileName.split(/[\\/]/).pop() || "";
-            const lineStart = currentEditor.selection.start.line + 1;
-            const lineEnd = currentEditor.selection.end.line + 1;
-
-            webviewView.webview.postMessage({
-              type: "selectedCode",
-              selectedCode: selectedCode,
-              fileName: fileName,
-              lineStart: lineStart,
-              lineEnd: lineEnd,
-            });
-          } else {
-            webviewView.webview.postMessage({
-              type: "selectedCode",
-              selectedCode: "",
-              fileName: "",
-              lineStart: 0,
-              lineEnd: 0,
-            });
-          }
-          break;
-        case "applyCodeBlock": {
-          const activeEditor = vscode.window.activeTextEditor;
-          if (activeEditor) {
-            await activeEditor.edit((editBuilder) => {
-              editBuilder.replace(activeEditor.selection, data.code);
-            });
-            vscode.window.showInformationMessage(
-              "Code block applied to editor."
-            );
-          } else {
-            vscode.window.showErrorMessage(
-              "No active editor to apply code block."
-            );
-          }
-          break;
-        }
-      }
-    });
-
-    // Listen for text selection changes
-    vscode.window.onDidChangeTextEditorSelection(() => {
-      const editor = vscode.window.activeTextEditor;
-      if (editor && !editor.selection.isEmpty) {
-        const selectedCode = editor.document.getText(editor.selection);
-        const fileName = editor.document.fileName.split(/[\\/]/).pop() || "";
-        const lineStart = editor.selection.start.line + 1;
-        const lineEnd = editor.selection.end.line + 1;
-
-        webviewView.webview.postMessage({
-          type: "selectedCode",
-          selectedCode: selectedCode,
-          fileName: fileName,
-          lineStart: lineStart,
-          lineEnd: lineEnd,
-        });
-      } else {
-        webviewView.webview.postMessage({
-          type: "selectedCode",
-          selectedCode: "",
-          fileName: "",
-          lineStart: 0,
-          lineEnd: 0,
-        });
-      }
-    });
-  }
-
-  private _getHtmlForWebview(webview: vscode.Webview) {
-    return `<!DOCTYPE html>
-		<html lang="en">
-		<head>
-			<meta charset="UTF-8">
-			<meta name="viewport" content="width=device-width, initial-scale=1.0">
-			<title>AI Reviewer Chat</title>
-			<style>
-				body {
-					padding: 10px;
-					font-family: var(--vscode-font-family);
-					color: var(--vscode-foreground);
-					background-color: var(--vscode-editor-background);
-					height: 100vh;
-					display: flex;
-					flex-direction: column;
-					margin: 0;
-				}
-
-				.chat-container {
-					display: flex;
-					flex-direction: column;
-					height: 100%;
-				}
-
-				.code-chip {
-					background-color: var(--vscode-badge-background);
-					color: var(--vscode-badge-foreground);
-					padding: 4px 8px;
-					border-radius: 12px;
-					font-size: 11px;
-					margin-bottom: 10px;
-					display: none;
-					word-break: break-all;
-				}
-
-				.messages-container {
-					flex: 1;
-					overflow-y: auto;
-					margin-bottom: 10px;
-					padding: 10px;
-					border: 1px solid var(--vscode-input-border);
-					border-radius: 4px;
-					background-color: var(--vscode-input-background);
-					display: flex;
-					flex-direction: column;
-				}
-
-				.message {
-					margin-bottom: 15px;
-					display: flex;
-					flex-direction: column;
-				}
-
-				.message.user {
-					align-items: flex-end;
-				}
-
-				.message.ai {
-					align-items: flex-start;
-				}
-
-				.message-bubble {
-					max-width: 80%;
-					padding: 8px 12px;
-					border-radius: 12px;
-					word-wrap: break-word;
-					white-space: pre-wrap;
-					font-size: 13px;
-					line-height: 1.4;
-				}
-
-				.message.user .message-bubble {
-					background-color: var(--vscode-button-background);
-					color: var(--vscode-button-foreground);
-					border-bottom-right-radius: 4px;
-				}
-
-				.message.ai .message-bubble {
-					background-color: var(--vscode-editor-background);
-					color: var(--vscode-foreground);
-					border: 1px solid var(--vscode-input-border);
-					border-bottom-left-radius: 4px;
-				}
-
-				/* Markdown styling */
-				.message.ai .message-bubble h1,
-				.message.ai .message-bubble h2,
-				.message.ai .message-bubble h3,
-				.message.ai .message-bubble h4,
-				.message.ai .message-bubble h5,
-				.message.ai .message-bubble h6 {
-					margin: 8px 0 4px 0;
-					color: var(--vscode-editor-foreground);
-				}
-
-				.message.ai .message-bubble h1 { font-size: 18px; }
-				.message.ai .message-bubble h2 { font-size: 16px; }
-				.message.ai .message-bubble h3 { font-size: 14px; }
-
-				.message.ai .message-bubble p {
-					margin: 4px 0;
-					line-height: 1.4;
-				}
-
-				.message.ai .message-bubble ul,
-				.message.ai .message-bubble ol {
-					margin: 4px 0;
-					padding-left: 20px;
-				}
-
-				.message.ai .message-bubble li {
-					margin: 2px 0;
-				}
-
-				.message.ai .message-bubble code {
-					background-color: var(--vscode-textCodeBlock-background);
-					color: var(--vscode-textCodeBlock-foreground);
-					padding: 2px 4px;
-					border-radius: 3px;
-					font-family: var(--vscode-editor-font-family);
-					font-size: 12px;
-				}
-
-				.message.ai .message-bubble pre {
-					background-color: var(--vscode-textCodeBlock-background);
-					border: 1px solid var(--vscode-input-border);
-					border-radius: 4px;
-					padding: 8px;
-					margin: 8px 0;
-					overflow-x: auto;
-				}
-
-				.message.ai .message-bubble pre code {
-					background: none;
-					padding: 0;
-					border-radius: 0;
-				}
-
-				.message.ai .message-bubble blockquote {
-					border-left: 3px solid var(--vscode-input-border);
-					margin: 8px 0;
-					padding-left: 12px;
-					color: var(--vscode-descriptionForeground);
-				}
-
-				.message.ai .message-bubble strong {
-					font-weight: bold;
-				}
-
-				.message.ai .message-bubble em {
-					font-style: italic;
-				}
-
-				.message.ai .message-bubble a {
-					color: var(--vscode-textLink-foreground);
-					text-decoration: none;
-				}
-
-				.message.ai .message-bubble a:hover {
-					text-decoration: underline;
-				}
-
-				.message.ai .message-bubble table {
-					border-collapse: collapse;
-					width: 100%;
-					margin: 8px 0;
-				}
-
-				.message.ai .message-bubble th,
-				.message.ai .message-bubble td {
-					border: 1px solid var(--vscode-input-border);
-					padding: 4px 8px;
-					text-align: left;
-				}
-
-				.message.ai .message-bubble th {
-					background-color: var(--vscode-editor-background);
-					font-weight: bold;
-				}
-
-				.message-time {
-					font-size: 10px;
-					color: var(--vscode-descriptionForeground);
-					margin-top: 4px;
-					opacity: 0.7;
-				}
-
-				.message.user .message-time {
-					text-align: right;
-				}
-
-				.message.ai .message-time {
-					text-align: left;
-				}
-
-				.input-container {
-					display: flex;
-					flex-direction: column;
-					gap: 8px;
-				}
-
-				.message-input {
-					width: 100%;
-					padding: 8px;
-					border: 1px solid var(--vscode-input-border);
-					background-color: var(--vscode-input-background);
-					color: var(--vscode-input-foreground);
-					border-radius: 4px;
-					box-sizing: border-box;
-					resize: vertical;
-					min-height: 60px;
-					font-family: var(--vscode-font-family);
-				}
-
-				.send-button {
-					background-color: var(--vscode-button-background);
-					color: var(--vscode-button-foreground);
-					border: none;
-					padding: 8px 16px;
-					border-radius: 4px;
-					cursor: pointer;
-					align-self: flex-end;
-				}
-
-				.send-button:hover {
-					background-color: var(--vscode-button-hoverBackground);
-				}
-
-				.send-button:disabled {
-					opacity: 0.6;
-					cursor: not-allowed;
-				}
-
-				.cancel-button {
-					background-color: var(--vscode-button-secondaryBackground);
-					color: var(--vscode-button-secondaryForeground);
-					border: 1px solid var(--vscode-button-secondaryBorder);
-					padding: 8px 16px;
-					border-radius: 4px;
-					cursor: pointer;
-					align-self: flex-end;
-					display: none;
-				}
-
-				.cancel-button:hover {
-					background-color: var(--vscode-button-secondaryHoverBackground);
-				}
-
-				.loading {
-					opacity: 0.6;
-				}
-
-				.typing-indicator {
-					display: none;
-					align-items: center;
-					gap: 4px;
-					padding: 8px 12px;
-					background-color: var(--vscode-editor-background);
-					border: 1px solid var(--vscode-input-border);
-					border-radius: 12px;
-					border-bottom-left-radius: 4px;
-					max-width: 80%;
-					margin-bottom: 15px;
-				}
-
-				.typing-dots {
-					display: flex;
-					gap: 2px;
-				}
-
-				.typing-dot {
-					width: 6px;
-					height: 6px;
-					background-color: var(--vscode-foreground);
-					border-radius: 50%;
-					animation: typing 1.4s infinite ease-in-out;
-				}
-
-				.typing-dot:nth-child(1) { animation-delay: -0.32s; }
-				.typing-dot:nth-child(2) { animation-delay: -0.16s; }
-
-				@keyframes typing {
-					0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
-					40% { transform: scale(1); opacity: 1; }
-				}
-			</style>
-		</head>
-		<body>
-			<div class="chat-container">
-				<div id="codeChip" class="code-chip"></div>
-
-				<div class="code-controls" style="display: flex; gap: 8px; margin-bottom: 10px;">
-					<button id="addCodeButton" class="send-button" style="font-size: 11px; padding: 4px 8px;" onclick="addCodeSelection()">
-						Add Selection (Ctrl+Shift+A)
-					</button>
-					<button id="clearCodeButton" class="send-button" style="font-size: 11px; padding: 4px 8px; display: none;" onclick="clearCodeSelections()">
-						Clear All (Ctrl+Shift+C)
-					</button>
-				</div>
-
-				<div id="messagesContainer" class="messages-container">
-					<div class="message ai">
-						<div class="message-bubble">
-							Hello! I'm your AI coding assistant. Select some code in your editor and press <strong>Ctrl+Shift+A</strong> to add it to your question. You can add multiple selections!
-						</div>
-						<div class="message-time">Just now</div>
-					</div>
-				</div>
-
-				<div id="typingIndicator" class="typing-indicator">
-					<div class="typing-dots">
-						<div class="typing-dot"></div>
-						<div class="typing-dot"></div>
-						<div class="typing-dot"></div>
-					</div>
-				</div>
-
-				<div class="input-container">
-					<textarea
-						id="messageInput"
-						class="message-input"
-						placeholder="Type your message here... (Use Ctrl+Shift+A to add code selections)"
-					></textarea>
-					<div class="controls" style="display: flex; gap: 8px; margin-top: 8px;">
-						<button id="sendButton" class="send-button">Send Message</button>
-						<button id="cancelButton" class="cancel-button">Cancel</button>
-					</div>
-				</div>
-			</div>
-
-			<script>
-				const vscode = acquireVsCodeApi();
-
-				// Add marked library for markdown conversion
-				const marked = window.marked || ((text) => text.replace(/\\n/g, '<br>'));
-
-				// Variables to track streaming state
-				let selectedCode = "";
-				let fileName = "";
-				let lineStart = 0;
-				let lineEnd = 0;
-				let codeSelections = []; // Array to store multiple code selections
-				let accumulatedText = ""; // Track accumulated text for markdown conversion
-
-				// Function to add message to chat
-				function addMessage(content, isUser = false) {
-					const messagesContainer = document.getElementById('messagesContainer');
-					const messageDiv = document.createElement('div');
-					messageDiv.className = \`message \${isUser ? 'user' : 'ai'}\`;
-
-					const bubbleDiv = document.createElement('div');
-					bubbleDiv.className = 'message-bubble';
-
-					if (isUser) {
-						bubbleDiv.textContent = content;
-					} else {
-						// For AI messages, content might be HTML
-						bubbleDiv.innerHTML = content;
-					}
-
-					const timeDiv = document.createElement('div');
-					timeDiv.className = 'message-time';
-					timeDiv.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-					messageDiv.appendChild(bubbleDiv);
-					messageDiv.appendChild(timeDiv);
-
-					// Use insertAdjacentElement to ensure proper ordering
-					messagesContainer.insertAdjacentElement('beforeend', messageDiv);
-
-					// Scroll to bottom
-					messagesContainer.scrollTop = messagesContainer.scrollHeight;
-				}
-
-				// Function to update code selections display
-				function updateCodeSelectionsDisplay() {
-					const codeChip = document.getElementById('codeChip');
-					const clearButton = document.getElementById('clearCodeButton');
-
-					if (codeSelections.length > 0) {
-						const totalLines = codeSelections.reduce((sum, sel) => sum + (sel.lineEnd - sel.lineStart + 1), 0);
-						codeChip.textContent = \`\${codeSelections.length} selection(s) - \${totalLines} total lines\`;
-						codeChip.style.display = 'block';
-						clearButton.style.display = 'inline-block';
-					} else {
-						codeChip.style.display = 'none';
-						clearButton.style.display = 'none';
-					}
-				}
-
-				// Function to add code selection
-				function addCodeSelection() {
-					vscode.postMessage({ type: 'addCodeSelection' });
-				}
-
-				// Function to clear all code selections
-				function clearCodeSelections() {
-					codeSelections = [];
-					updateCodeSelectionsDisplay();
-					vscode.postMessage({ type: 'clearCodeSelections' });
-				}
-
-				function showTypingIndicator() {
-					document.getElementById('typingIndicator').style.display = 'flex';
-					document.getElementById('messagesContainer').scrollTop = document.getElementById('messagesContainer').scrollHeight;
-				}
-
-				function hideTypingIndicator() {
-					document.getElementById('typingIndicator').style.display = 'none';
-				}
-
-				// Listen for messages from extension
-				window.addEventListener('message', event => {
-					const message = event.data;
-					switch (message.type) {
-						case 'selectedCode':
-							selectedCode = message.selectedCode;
-							fileName = message.fileName;
-							lineStart = message.lineStart;
-							lineEnd = message.lineEnd;
-
-							const codeChip = document.getElementById('codeChip');
-							if (selectedCode && fileName) {
-								codeChip.textContent = \`\${fileName} (line \${lineStart}: line \${lineEnd})\`;
-								codeChip.style.display = 'block';
-							} else {
-								codeChip.style.display = 'none';
-							}
-							break;
-
-						case 'codeSelectionAdded':
-							// Add new code selection to the array
-							codeSelections.push(message.selection);
-							updateCodeSelectionsDisplay();
-							break;
-
-						case 'codeSelectionsCleared':
-							// Clear all code selections
-							codeSelections = [];
-							updateCodeSelectionsDisplay();
-							break;
-
-						case 'startStreaming':
-							hideTypingIndicator();
-							// Reset accumulated text for new streaming
-							accumulatedText = "";
-							// Add a small delay to ensure user message is fully rendered
-							setTimeout(() => {
-								// Create a new AI message bubble for streaming
-								const messagesContainer = document.getElementById('messagesContainer');
-								const messageDiv = document.createElement('div');
-								messageDiv.className = 'message ai';
-								messageDiv.id = 'currentStreamingMessage';
-
-								const bubbleDiv = document.createElement('div');
-								bubbleDiv.className = 'message-bubble';
-								bubbleDiv.id = 'currentStreamingBubble';
-
-								const timeDiv = document.createElement('div');
-								timeDiv.className = 'message-time';
-								timeDiv.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-								messageDiv.appendChild(bubbleDiv);
-								messageDiv.appendChild(timeDiv);
-
-								// Use insertAdjacentElement to ensure proper ordering
-								messagesContainer.insertAdjacentElement('beforeend', messageDiv);
-
-								// Scroll to bottom
-								messagesContainer.scrollTop = messagesContainer.scrollHeight;
-							}, 10);
-							break;
-
-						case 'streamChunk':
-							// Append chunk to the current streaming message
-							const streamingBubble = document.getElementById('currentStreamingBubble');
-							if (streamingBubble) {
-								if (message.isHtml) {
-									// Replace the entire content with the new HTML (fallback)
-									streamingBubble.innerHTML = message.chunk;
-								} else {
-									// Accumulate text and convert markdown to HTML for smooth streaming
-									accumulatedText += message.chunk;
-									const htmlContent = marked.parse ? marked.parse(accumulatedText) : marked(accumulatedText);
-									streamingBubble.innerHTML = htmlContent;
-								}
-								// Scroll to bottom to follow the text
-								document.getElementById('messagesContainer').scrollTop = document.getElementById('messagesContainer').scrollHeight;
-							}
-							// Add apply buttons to code blocks if HTML content
-							if (!message.isHtml) setTimeout(addApplyButtonsToCodeBlocks, 0);
-							break;
-
-						case 'streamComplete':
-							hideTypingIndicator();
-							// Remove the streaming message IDs so new streaming messages can be created
-							const completedStreamingMessage = document.getElementById('currentStreamingMessage');
-							if (completedStreamingMessage) {
-								completedStreamingMessage.removeAttribute('id');
-								const completedBubble = completedStreamingMessage.querySelector('#currentStreamingBubble');
-								if (completedBubble) {
-									completedBubble.removeAttribute('id');
-								}
-							}
-							document.getElementById('sendButton').disabled = false;
-							document.getElementById('sendButton').textContent = 'Send Message';
-							document.getElementById('cancelButton').style.display = 'none';
-							break;
-						case "streamCancelled":
-							// Handle cancellation notification from webview
-							hideTypingIndicator();
-
-							// Remove any existing streaming message
-							const cancelledStreamingMessage = document.getElementById('currentStreamingMessage');
-							if (cancelledStreamingMessage) {
-								cancelledStreamingMessage.remove();
-							}
-
-							addMessage(\`<strong>Cancelled:</strong> The AI request was cancelled. Please try again.\`, false);
-							document.getElementById('sendButton').disabled = false;
-							document.getElementById('sendButton').textContent = 'Send Message';
-							document.getElementById('cancelButton').style.display = 'none';
-							break;
-						case 'error':
-							hideTypingIndicator();
-
-							// Remove any existing streaming message
-							const errorStreamingMessage = document.getElementById('currentStreamingMessage');
-							if (errorStreamingMessage) {
-								errorStreamingMessage.remove();
-							}
-
-							addMessage(\`<strong>Error:</strong> \${message.content}\`, false);
-							document.getElementById('sendButton').disabled = false;
-							document.getElementById('sendButton').textContent = 'Send Message';
-							break;
-					}
-				});
-
-				// Handle send button click
-				document.getElementById('sendButton').addEventListener('click', sendMessage);
-
-				// Handle cancel button click
-				document.getElementById('cancelButton').addEventListener('click', cancelMessage);
-
-				// Handle enter key press
-				document.getElementById('messageInput').addEventListener('keypress', function(e) {
-					if (e.key === 'Enter' && !e.shiftKey) {
-						e.preventDefault();
-						sendMessage();
-					}
-				});
-
-				// Handle keyboard shortcuts
-				document.addEventListener('keydown', function(e) {
-					// Ctrl+Shift+A to add code selection
-					if (e.ctrlKey && e.shiftKey && e.key === 'A') {
-						e.preventDefault();
-						addCodeSelection();
-					}
-					// Ctrl+Shift+C to clear code selections
-					if (e.ctrlKey && e.shiftKey && e.key === 'C') {
-						e.preventDefault();
-						clearCodeSelections();
-					}
-				});
-
-				function sendMessage() {
-					const messageInput = document.getElementById('messageInput');
-					const message = messageInput.value.trim();
-
-					if (!message) return;
-
-					// Add user message to chat
-					addMessage(message, true);
-
-					// Clear input
-					messageInput.value = '';
-
-					// Disable send button and show typing indicator
-					const sendButton = document.getElementById('sendButton');
-					const cancelButton = document.getElementById('cancelButton');
-					sendButton.disabled = true;
-					sendButton.textContent = 'Sending...';
-					cancelButton.style.display = 'block';
-					showTypingIndicator();
-
-					// Send message to extension with code selections
-					vscode.postMessage({
-						type: 'sendMessage',
-						message: message,
-						codeSelections: codeSelections
-					});
-				}
-
-				function cancelMessage() {
-					// Send cancellation message to extension
-					vscode.postMessage({
-						type: 'cancelStreaming'
-					});
-
-					// Reset UI
-					const sendButton = document.getElementById('sendButton');
-					const cancelButton = document.getElementById('cancelButton');
-					sendButton.disabled = false;
-					sendButton.textContent = 'Send Message';
-					cancelButton.style.display = 'none';
-					hideTypingIndicator();
-				}
-
-				// Function to add apply buttons to code blocks in AI responses
-				function addApplyButtonsToCodeBlocks() {
-					const codeBlocks = document.querySelectorAll('pre code');
-					codeBlocks.forEach((codeBlock, index) => {
-						// Check if buttons already exist
-						if (codeBlock.parentElement.querySelector('.apply-code-btn') || codeBlock.parentElement.querySelector('.copy-code-btn')) {
-							return;
-						}
-
-						// Create button container
-						const buttonContainer = document.createElement('div');
-						buttonContainer.className = 'code-block-buttons';
-						buttonContainer.style.cssText = 'display: flex; gap: 4px; margin-top: 8px;';
-
-						// Create Apply Code button
-						const applyButton = document.createElement('button');
-						applyButton.className = 'apply-code-btn';
-						applyButton.textContent = 'Apply Code';
-						applyButton.style.cssText = 'background-color: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px;';
-						applyButton.onclick = function() {
-							const code = codeBlock.textContent;
-							vscode.postMessage({
-								type: 'applyCode',
-								code: code
-							});
-						};
-
-						// Create Copy Code button
-						const copyButton = document.createElement('button');
-						copyButton.className = 'copy-code-btn';
-						copyButton.textContent = 'Copy';
-						copyButton.style.cssText = 'background-color: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); border: 1px solid var(--vscode-button-secondaryBorder); padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px;';
-						copyButton.onclick = function() {
-							const code = codeBlock.textContent;
-							navigator.clipboard.writeText(code).then(() => {
-								// Show brief feedback
-								const originalText = copyButton.textContent;
-								copyButton.textContent = 'Copied!';
-								copyButton.style.backgroundColor = 'var(--vscode-notificationsSuccessIcon-foreground)';
-								copyButton.style.color = 'var(--vscode-notificationsSuccessBackground)';
-								setTimeout(() => {
-									copyButton.textContent = originalText;
-									copyButton.style.backgroundColor = 'var(--vscode-button-secondaryBackground)';
-									copyButton.style.color = 'var(--vscode-button-secondaryForeground)';
-								}, 1000);
-							}).catch(err => {
-								console.error('Failed to copy code:', err);
-								// Fallback: show error message
-								const originalText = copyButton.textContent;
-								copyButton.textContent = 'Error';
-								copyButton.style.backgroundColor = 'var(--vscode-errorForeground)';
-								copyButton.style.color = 'var(--vscode-errorBackground)';
-								setTimeout(() => {
-									copyButton.textContent = originalText;
-									copyButton.style.backgroundColor = 'var(--vscode-button-secondaryBackground)';
-									copyButton.style.color = 'var(--vscode-button-secondaryForeground)';
-								}, 1000);
-							});
-						};
-
-						// Add buttons to container
-						buttonContainer.appendChild(applyButton);
-						buttonContainer.appendChild(copyButton);
-
-						// Insert button container after the code block
-						codeBlock.parentElement.appendChild(buttonContainer);
-					});
-				}
-			</script>
-		</body>
-		</html>`;
-  }
-}
-
-// Function to call LLM
-async function callLLM(
-  apiToken: string,
-  prompt: string,
-  endpoint: string,
-  model: string
-): Promise<string> {
-  try {
-    const requestBody = {
-      model: model,
-      prompt: prompt,
-      stream: false,
-    };
-
-    // Debug: Log the request details
-    logDebug("=== AI Reviewer LLM Request Debug ===", {
-      endpoint,
-      model,
-      prompt: prompt.substring(0, 200) + (prompt.length > 200 ? "..." : ""), // Truncate long prompts
-    });
-
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiToken}`,
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (response.ok) {
-      const data = (await response.json()) as { response?: string };
-      const llmResponse = data.response ?? "No response received from LLM";
-      logDebug(
-        "LLM Response",
-        llmResponse.substring(0, 500) + (llmResponse.length > 500 ? "..." : "")
-      );
-      return llmResponse;
-    }
-    const errorText = await response.text();
-    throw new Error(
-      `LLM API error: ${response.status} - ${response.statusText}. Details: ${errorText}`
-    );
-  } catch (error) {
-    throw new Error(
-      `Failed to call LLM API: ${
-        error instanceof Error ? error.message : "Unknown error"
-      }`
-    );
-  }
-}
-
-// Function to call LLM with streaming
-async function callLLMStream(
-  apiToken: string,
-  prompt: string,
-  endpoint: string,
-  model: string,
-  onChunk: (chunk: string) => void
-): Promise<void> {
-  try {
-    const requestBody = {
-      model: model,
-      prompt: prompt,
-      stream: true,
-    };
-
-    // Debug: Log the request details
-    logDebug("=== AI Reviewer LLM Streaming Request Debug ===", {
-      endpoint,
-      model,
-      prompt,
-    });
-
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiToken}`,
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(
-        `LLM API error: ${response.status} - ${response.statusText}. Details: ${errorText}`
-      );
-    }
-
-    const reader = response.body?.getReader();
-    if (!reader) {
-      throw new Error("Response body is not readable");
-    }
-
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-
-      if (done) {
-        break;
-      }
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-
-      for (const line of lines) {
-        if (line.trim() === "") continue;
-
-        try {
-          // Remove "data: " prefix if present
-          const jsonStr = line.startsWith("data: ") ? line.slice(6) : line;
-          if (jsonStr === "[DONE]") continue;
-
-          const data = JSON.parse(jsonStr);
-          if (data.response) {
-            onChunk(data.response);
-          }
-        } catch (e) {
-          logDebug("Error parsing streaming response", { line, error: e });
-        }
-      }
-    }
-  } catch (error) {
-    throw new Error(
-      `Failed to call LLM API with streaming: ${
-        error instanceof Error ? error.message : "Unknown error"
-      }`
-    );
-  }
-}
-
-// Function to call LLM with streaming and cancellation support
-async function callLLMStreamWithCancellation(
-  apiToken: string,
-  prompt: string,
-  endpoint: string,
-  model: string,
-  cancellationToken: vscode.CancellationToken,
-  onChunk: (chunk: string) => void
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    // Create AbortController for fetch cancellation
-    const abortController = new AbortController();
-
-    // Listen for cancellation
-    const cancellationListener = cancellationToken.onCancellationRequested(() => {
-      abortController.abort();
-      reject(new Error('Request cancelled by user'));
-    });
-
-    const requestBody = {
-      model: model,
-      prompt: prompt,
-      stream: true,
-    };
-
-    // Debug: Log the request details
-    logDebug("=== AI Reviewer LLM Streaming Request Debug ===", {
-      endpoint,
-      model,
-      prompt,
-    });
-
-    // Make the API request
-    fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiToken}`,
-      },
-      body: JSON.stringify(requestBody),
-      signal: abortController.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(
-            `LLM API error: ${response.status} - ${response.statusText}. Details: ${errorText}`
-          );
-        }
-
-        const reader = response.body?.getReader();
-        if (!reader) {
-          throw new Error("Response body is not readable");
-        }
-
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        const processStream = async () => {
-          while (true) {
-            // Check for cancellation before each read
-            if (cancellationToken.isCancellationRequested) {
-              reader.cancel();
-              throw new Error('Request cancelled by user');
-            }
-
-            const { done, value } = await reader.read();
-
-            if (done) {
-              break;
-            }
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
-
-            for (const line of lines) {
-              if (line.trim() === "") continue;
-
-              try {
-                // Remove "data: " prefix if present
-                const jsonStr = line.startsWith("data: ") ? line.slice(6) : line;
-                if (jsonStr === "[DONE]") continue;
-
-                const data = JSON.parse(jsonStr) as any;
-                if (data.response) {
-                  onChunk(data.response);
-                }
-              } catch (e) {
-                logDebug("Error parsing streaming response", { line, error: e });
-              }
-            }
-          }
-        };
-
-        await processStream();
-        resolve();
-      })
-      .catch((error) => {
-        if (error.name === 'AbortError') {
-          reject(new Error('Request cancelled by user'));
-        } else {
-          reject(new Error(
-            `Failed to call LLM API with streaming: ${
-              error instanceof Error ? error.message : "Unknown error"
-            }`
-          ));
-        }
-      })
-      .finally(() => {
-        // Clean up cancellation listener
-        cancellationListener.dispose();
-      });
-  });
-}
+import { logDebug, getDebugOutputChannel } from "./helper";
+import { callLLM } from "./llmProvider";
+import { SettingsPanelProvider } from "./settingsPanelProvider";
+import { ChatPanelProvider } from "./chatPanelProvider";
+import { HistoryPanelProvider } from "./historyPanelProvider";
+import { AnalyticsPanelProvider } from "./analyticsPanelProvider";
+import { TemplatesPanelProvider } from "./templatesPanelProvider";
+import { SecondarySidebarManager } from "./secondarySidebarManager";
+import { GitHelper } from "./gitHelper";
+
+export const debugOutputChannel = getDebugOutputChannel();
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -1673,6 +38,40 @@ export function activate(context: vscode.ExtensionContext) {
       chatPanelProvider
     )
   );
+
+  // Register the history panel provider
+  const historyPanelProvider = new HistoryPanelProvider(context.extensionUri);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      HistoryPanelProvider.viewType,
+      historyPanelProvider
+    )
+  );
+
+  // Register the analytics panel provider
+  const analyticsPanelProvider = new AnalyticsPanelProvider(context.extensionUri);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      AnalyticsPanelProvider.viewType,
+      analyticsPanelProvider
+    )
+  );
+
+  // Register the templates panel provider
+  const templatesPanelProvider = new TemplatesPanelProvider(context.extensionUri);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      TemplatesPanelProvider.viewType,
+      templatesPanelProvider
+    )
+  );
+
+  // Initialize secondary sidebar manager
+  const sidebarManager = SecondarySidebarManager.getInstance();
+  sidebarManager.loadData();
+
+  // Set up message handling for secondary sidebar providers
+  setupSecondarySidebarMessageHandling(historyPanelProvider, analyticsPanelProvider, templatesPanelProvider, sidebarManager);
 
   // The command has been defined in the package.json file
   // Now provide the implementation of the command with registerCommand
@@ -1747,13 +146,17 @@ export function activate(context: vscode.ExtensionContext) {
                             Format your response in a clear, structured manner.`;
 
             // Debug: Log the prompt to console
-            logDebug("=== AI Reviewer Code Review - Prompt Debug ===", {
-              file: document.fileName,
-              language: document.languageId,
-              codingConvention:
-                codingConvention || "Standard coding best practices",
-              promptLength: prompt.length,
-            });
+            logDebug(
+              debugOutputChannel,
+              "=== AI Reviewer Code Review - Prompt Debug ===",
+              {
+                file: document.fileName,
+                language: document.languageId,
+                codingConvention:
+                  codingConvention || "Standard coding best practices",
+                promptLength: prompt.length,
+              }
+            );
 
             const response: string = await callLLM(
               apiToken,
@@ -1766,6 +169,9 @@ export function activate(context: vscode.ExtensionContext) {
 
             // Convert markdown response to HTML for better display
             const htmlResponse: string = await marked(response);
+
+            // Add to review history
+            await addReviewToHistory(document.fileName, 'warning', { response: htmlResponse });
 
             // Show the review in a new document
             await showReviewResults(htmlResponse, document.fileName);
@@ -1941,7 +347,7 @@ If no violations are found, return an empty violations array.`;
             progress.report({ increment: 0, message: "Getting git diff..." });
 
             // Get the current branch
-            const currentBranch = await getCurrentBranch(
+            const currentBranch = await GitHelper.getCurrentBranch(
               workspaceFolder.uri.fsPath
             );
 
@@ -1953,7 +359,12 @@ If no violations are found, return an empty violations array.`;
             }
 
             // Verify the base branch exists
-            if (!(await branchExists(workspaceFolder.uri.fsPath, baseBranch))) {
+            if (
+              !(await GitHelper.branchExists(
+                workspaceFolder.uri.fsPath,
+                baseBranch
+              ))
+            ) {
               vscode.window.showErrorMessage(
                 `Base branch '${baseBranch}' does not exist. Please check your configuration.`
               );
@@ -1966,7 +377,7 @@ If no violations are found, return an empty violations array.`;
             });
 
             // Get the list of changed files
-            const changedFiles = await getChangedFiles(
+            const changedFiles = await GitHelper.getChangedFiles(
               workspaceFolder.uri.fsPath,
               baseBranch
             );
@@ -2005,7 +416,11 @@ If no violations are found, return an empty violations array.`;
                 );
                 allReviews.push(review);
               } catch (error) {
-                logDebug(`Error reviewing ${file.name}`, error);
+                logDebug(
+                  debugOutputChannel,
+                  `Error reviewing ${file.name}`,
+                  error
+                );
                 allReviews.push({
                   fileName: file.name,
                   error:
@@ -2032,64 +447,6 @@ If no violations are found, return an empty violations array.`;
       );
     }
   );
-
-  // Helper function to get current branch
-  async function getCurrentBranch(repoPath: string): Promise<string | null> {
-    try {
-      const { execSync } = require("child_process");
-      const result = execSync("git branch --show-current", {
-        cwd: repoPath,
-        encoding: "utf8",
-      });
-      return result.trim();
-    } catch (error) {
-      logDebug("Error getting current branch", error);
-      return null;
-    }
-  }
-
-  // Helper function to check if a branch exists
-  async function branchExists(
-    repoPath: string,
-    branchName: string
-  ): Promise<boolean> {
-    try {
-      const { execSync } = require("child_process");
-      execSync(`git show-ref --verify --quiet refs/heads/${branchName}`, {
-        cwd: repoPath,
-      });
-      return true;
-    } catch (error) {
-      console.error(error);
-      return false;
-    }
-  }
-
-  // Helper function to get changed files
-  async function getChangedFiles(
-    repoPath: string,
-    baseBranch: string
-  ): Promise<Array<{ name: string; path: string }>> {
-    try {
-      const { execSync } = require("child_process");
-      const result = execSync(`git diff --name-only ${baseBranch}`, {
-        cwd: repoPath,
-        encoding: "utf8",
-      });
-
-      const files = result
-        .trim()
-        .split("\n")
-        .filter((file: string) => file.trim() !== "");
-      return files.map((file: string) => ({
-        name: file.split("/").pop() || file,
-        path: file,
-      }));
-    } catch (error) {
-      logDebug("Error getting changed files", error);
-      throw new Error("Failed to get changed files from git");
-    }
-  }
 
   // Helper function to review a single changed file
   async function reviewChangedFile(
@@ -2876,7 +1233,9 @@ ${review.violations
       position: vscode.Position,
       context: vscode.InlineCompletionContext,
       token: vscode.CancellationToken
-    ): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList | undefined> {
+    ): Promise<
+      vscode.InlineCompletionItem[] | vscode.InlineCompletionList | undefined
+    > {
       if (!this._isEnabled) {
         return undefined;
       }
@@ -2890,10 +1249,18 @@ ${review.violations
       return new Promise((resolve) => {
         this._debounceTimer = setTimeout(async () => {
           try {
-            const suggestions = await this.generateSuggestions(document, position, context);
+            const suggestions = await this.generateSuggestions(
+              document,
+              position,
+              context
+            );
             resolve(suggestions);
           } catch (error) {
-            logDebug("Error generating ghost text suggestions:", error);
+            logDebug(
+              debugOutputChannel,
+              "Error generating ghost text suggestions:",
+              error
+            );
             resolve(undefined);
           }
         }, 500); // 500ms debounce
@@ -2908,7 +1275,7 @@ ${review.violations
       const config = getConfiguration();
 
       if (!config.apiToken) {
-        logDebug("Ghost text: No API token configured");
+        logDebug(debugOutputChannel, "Ghost text: No API token configured");
         return undefined;
       }
 
@@ -2918,15 +1285,27 @@ ${review.violations
       const cursorPosition = position.character;
 
       // More permissive condition - show suggestions when typing or at end of line
-      if (cursorPosition < lineText.length && lineText.trim() === '') {
-        logDebug("Ghost text: Skipping empty line");
+      if (cursorPosition < lineText.length && lineText.trim() === "") {
+        logDebug(debugOutputChannel, "Ghost text: Skipping empty line");
         return undefined;
       }
 
       // Don't show suggestions if we're in the middle of a word (unless it's a function call)
-      const currentWord = lineText.substring(0, cursorPosition).split(/\s+/).pop() || '';
-      if (currentWord.length > 0 && !currentWord.includes('(') && !currentWord.includes('[') && !currentWord.includes('{')) {
-        logDebug("Ghost text: In middle of word, skipping", { currentWord });
+      const currentWord =
+        lineText.substring(0, cursorPosition).split(/\s+/).pop() || "";
+      if (
+        currentWord.length > 0 &&
+        !currentWord.includes("(") &&
+        !currentWord.includes("[") &&
+        !currentWord.includes("{")
+      ) {
+        logDebug(
+          debugOutputChannel,
+          "Ghost text: In middle of word, skipping",
+          {
+            currentWord,
+          }
+        );
         return undefined;
       }
 
@@ -2939,15 +1318,15 @@ ${review.violations
         contextText.push(document.lineAt(i).text);
       }
 
-      const contextString = contextText.join('\n');
+      const contextString = contextText.join("\n");
       const currentLinePrefix = lineText.substring(0, cursorPosition);
 
-      logDebug("Ghost text: Generating suggestion", {
+      logDebug(debugOutputChannel, "Ghost text: Generating suggestion", {
         language: document.languageId,
         currentLine: currentLinePrefix,
         contextLines: contextText.length,
         cursorPosition: cursorPosition,
-        lineLength: lineText.length
+        lineLength: lineText.length,
       });
 
       // Create prompt for AI suggestion
@@ -2966,23 +1345,30 @@ ${review.violations
           config.llmModel
         );
 
-        logDebug("Ghost text: LLM response received", {
-          originalSuggestion: suggestion?.substring(0, 100) + (suggestion && suggestion.length > 100 ? '...' : ''),
-          suggestionLength: suggestion?.length || 0
+        logDebug(debugOutputChannel, "Ghost text: LLM response received", {
+          originalSuggestion:
+            suggestion?.substring(0, 100) +
+            (suggestion && suggestion.length > 100 ? "..." : ""),
+          suggestionLength: suggestion?.length || 0,
         });
 
         if (suggestion && suggestion.trim()) {
           // Clean and format the suggestion
-          const cleanedSuggestion = this.cleanSuggestion(suggestion, currentLinePrefix);
+          const cleanedSuggestion = this.cleanSuggestion(
+            suggestion,
+            currentLinePrefix
+          );
 
-          logDebug("Ghost text: Cleaned suggestion", {
+          logDebug(debugOutputChannel, "Ghost text: Cleaned suggestion", {
             cleanedSuggestion: cleanedSuggestion,
-            cleanedLength: cleanedSuggestion.length
+            cleanedLength: cleanedSuggestion.length,
           });
 
           if (cleanedSuggestion) {
             // Ensure the suggestion is properly formatted for VS Code
-            const finalSuggestion = cleanedSuggestion.replace(/\n/g, ' ').trim();
+            const finalSuggestion = cleanedSuggestion
+              .replace(/\n/g, " ")
+              .trim();
 
             if (finalSuggestion.length > 0) {
               const completionItem = new vscode.InlineCompletionItem(
@@ -2993,18 +1379,26 @@ ${review.violations
               // Don't add command - let VS Code handle Tab key naturally
               // This prevents double insertion
 
-              logDebug("Ghost text: Returning completion item", {
-                suggestion: finalSuggestion,
-                position: position.toString(),
-                suggestionLength: finalSuggestion.length
-              });
+              logDebug(
+                debugOutputChannel,
+                "Ghost text: Returning completion item",
+                {
+                  suggestion: finalSuggestion,
+                  position: position.toString(),
+                  suggestionLength: finalSuggestion.length,
+                }
+              );
 
               return [completionItem];
             }
           }
         }
       } catch (error) {
-        logDebug("Error calling LLM for ghost text:", error);
+        logDebug(
+          debugOutputChannel,
+          "Error calling LLM for ghost text:",
+          error
+        );
       }
 
       return undefined;
@@ -3047,17 +1441,20 @@ DO NOT include any explanatory text, comments, or notes in your response. Return
 Suggestion:`;
     }
 
-    private cleanSuggestion(suggestion: string, currentLinePrefix: string): string {
+    private cleanSuggestion(
+      suggestion: string,
+      currentLinePrefix: string
+    ): string {
       // Remove any markdown formatting or extra text
       let cleaned = suggestion.trim();
 
       // Remove common prefixes that might be included
-      if (cleaned.startsWith('```')) {
-        cleaned = cleaned.replace(/^```\w*\n?/, '').replace(/\n?```$/, '');
+      if (cleaned.startsWith("```")) {
+        cleaned = cleaned.replace(/^```\w*\n?/, "").replace(/\n?```$/, "");
       }
 
       // Remove "Suggestion:" prefix if present
-      cleaned = cleaned.replace(/^suggestion:\s*/i, '');
+      cleaned = cleaned.replace(/^suggestion:\s*/i, "");
 
       // If the suggestion starts with the current line prefix, remove it
       if (cleaned.toLowerCase().startsWith(currentLinePrefix.toLowerCase())) {
@@ -3065,12 +1462,12 @@ Suggestion:`;
       }
 
       // Remove "NO_SUGGESTION" responses
-      if (cleaned.toLowerCase().includes('no_suggestion')) {
-        return '';
+      if (cleaned.toLowerCase().includes("no_suggestion")) {
+        return "";
       }
 
       // Handle cases where the AI returns the full line with backticks
-      if (cleaned.startsWith('`') && cleaned.endsWith('`')) {
+      if (cleaned.startsWith("`") && cleaned.endsWith("`")) {
         cleaned = cleaned.substring(1, cleaned.length - 1);
       }
 
@@ -3083,25 +1480,25 @@ Suggestion:`;
       }
 
       // Clean up any remaining quotes or formatting
-      cleaned = cleaned.replace(/^["']|["']$/g, '');
+      cleaned = cleaned.replace(/^["']|["']$/g, "");
 
       // Remove explanatory text in parentheses (like "Note: assuming that...")
-      cleaned = cleaned.replace(/\s*\([^)]*\)\s*$/g, '');
+      cleaned = cleaned.replace(/\s*\([^)]*\)\s*$/g, "");
 
       // Remove any trailing comments or explanations
-      cleaned = cleaned.replace(/\s*\/\/.*$/g, '');
-      cleaned = cleaned.replace(/\s*#.*$/g, '');
+      cleaned = cleaned.replace(/\s*\/\/.*$/g, "");
+      cleaned = cleaned.replace(/\s*#.*$/g, "");
 
       // Remove any trailing text after the main suggestion
-      const lines = cleaned.split('\n');
+      const lines = cleaned.split("\n");
       if (lines.length > 1) {
         cleaned = lines[0]; // Take only the first line
       }
 
-      logDebug("Ghost text: Suggestion cleaning", {
+      logDebug(debugOutputChannel, "Ghost text: Suggestion cleaning", {
         original: suggestion,
         currentLinePrefix: currentLinePrefix,
-        cleaned: cleaned
+        cleaned: cleaned,
       });
 
       return cleaned.trim();
@@ -3113,29 +1510,32 @@ Suggestion:`;
   const config = getConfiguration();
   ghostTextProvider.setEnabled(config.ghostTextEnabled);
 
-  const ghostTextDisposable = vscode.languages.registerInlineCompletionItemProvider(
-    { pattern: '**' }, // Register for all file types
-    ghostTextProvider
-  );
+  const ghostTextDisposable =
+    vscode.languages.registerInlineCompletionItemProvider(
+      { pattern: "**" }, // Register for all file types
+      ghostTextProvider
+    );
 
   // Add command to accept ghost suggestions
   const acceptGhostSuggestionDisposable = vscode.commands.registerCommand(
-    'ai-reviewer.acceptGhostSuggestion',
+    "ai-reviewer.acceptGhostSuggestion",
     (suggestion: string) => {
       const editor = vscode.window.activeTextEditor;
       if (editor) {
         const position = editor.selection.active;
         // Don't insert here - let VS Code handle the Tab key naturally
-        logDebug("Ghost text: Accept command triggered", { suggestion });
+        logDebug(debugOutputChannel, "Ghost text: Accept command triggered", {
+          suggestion,
+        });
       }
     }
   );
 
   // Add command to toggle ghost text
   const toggleGhostTextDisposable = vscode.commands.registerCommand(
-    'ai-reviewer.toggleGhostText',
+    "ai-reviewer.toggleGhostText",
     async () => {
-      const currentState = ghostTextProvider['_isEnabled'];
+      const currentState = ghostTextProvider["_isEnabled"];
       const newState = !currentState;
       ghostTextProvider.setEnabled(newState);
 
@@ -3148,37 +1548,37 @@ Suggestion:`;
       );
 
       vscode.window.showInformationMessage(
-        `AI Ghost Text ${newState ? 'enabled' : 'disabled'}`
+        `AI Ghost Text ${newState ? "enabled" : "disabled"}`
       );
     }
   );
 
   // Add command to test ghost text
   const testGhostTextDisposable = vscode.commands.registerCommand(
-    'ai-reviewer.testGhostText',
+    "ai-reviewer.testGhostText",
     async () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
-        vscode.window.showErrorMessage('No active editor');
+        vscode.window.showErrorMessage("No active editor");
         return;
       }
 
       const position = editor.selection.active;
       const document = editor.document;
 
-      logDebug("Testing ghost text at position", {
+      logDebug(debugOutputChannel, "Testing ghost text at position", {
         position: position.toString(),
         currentLine: document.lineAt(position.line).text,
-        language: document.languageId
+        language: document.languageId,
       });
 
       try {
-        const suggestions = await ghostTextProvider['generateSuggestions'](
+        const suggestions = await ghostTextProvider["generateSuggestions"](
           document,
           position,
           {
             triggerKind: vscode.InlineCompletionTriggerKind.Automatic,
-            selectedCompletionInfo: undefined
+            selectedCompletionInfo: undefined,
           }
         );
 
@@ -3187,28 +1587,32 @@ Suggestion:`;
             `Ghost text suggestion: "${suggestions[0].insertText}"`
           );
         } else {
-          vscode.window.showInformationMessage('No ghost text suggestions generated');
+          vscode.window.showInformationMessage(
+            "No ghost text suggestions generated"
+          );
         }
       } catch (error) {
         vscode.window.showErrorMessage(`Ghost text test failed: ${error}`);
-        logDebug("Ghost text test error:", error);
+        logDebug(debugOutputChannel, "Ghost text test error:", error);
       }
     }
   );
 
   // Add command to open AI prompt popup and write response to editor
   const aiPromptPopupDisposable = vscode.commands.registerCommand(
-    'ai-reviewer.aiPromptPopup',
+    "ai-reviewer.aiPromptPopup",
     async () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
-        vscode.window.showErrorMessage('No active editor');
+        vscode.window.showErrorMessage("No active editor");
         return;
       }
 
       const config = getConfiguration();
       if (!config.apiToken) {
-        vscode.window.showErrorMessage('API token not configured. Please set it in AI Reviewer settings.');
+        vscode.window.showErrorMessage(
+          "API token not configured. Please set it in AI Reviewer settings."
+        );
         return;
       }
 
@@ -3232,22 +1636,27 @@ Suggestion:`;
 
     // Show quick pick for prompt type or custom input
     const promptOptions = [
-      { label: '$(comment-discussion) Explain this code', value: 'Explain this code' },
-      { label: '$(lightbulb) Optimize this code', value: 'Optimize this code' },
-      { label: '$(note) Add comments', value: 'Add comments' },
-      { label: '$(bug) Fix bugs', value: 'Fix bugs' },
-      { label: '$(refresh) Refactor this code', value: 'Refactor this code' },
-      { label: '$(testing) Write tests', value: 'Write tests for this code' },
-      { label: '$(pencil) Custom prompt...', value: 'custom' }
+      {
+        label: "$(comment-discussion) Explain this code",
+        value: "Explain this code",
+      },
+      { label: "$(lightbulb) Optimize this code", value: "Optimize this code" },
+      { label: "$(note) Add comments", value: "Add comments" },
+      { label: "$(bug) Fix bugs", value: "Fix bugs" },
+      { label: "$(refresh) Refactor this code", value: "Refactor this code" },
+      { label: "$(testing) Write tests", value: "Write tests for this code" },
+      { label: "$(pencil) Custom prompt...", value: "custom" },
     ];
 
-    const contextInfo = selectedText ?
-      `Selected ${selectedText.split('\n').length} lines of ${document.languageId} code` :
-      'No code selected';
+    const contextInfo = selectedText
+      ? `Selected ${selectedText.split("\n").length} lines of ${
+          document.languageId
+        } code`
+      : "No code selected";
 
     const selectedPrompt = await vscode.window.showQuickPick(promptOptions, {
       placeHolder: `🤖 AI Assistant - ${contextInfo}`,
-      title: 'Choose AI action or enter custom prompt'
+      title: "Choose AI action or enter custom prompt",
     });
 
     if (!selectedPrompt) {
@@ -3257,12 +1666,12 @@ Suggestion:`;
     let prompt = selectedPrompt.value;
 
     // If custom prompt selected, show input box
-    if (prompt === 'custom') {
+    if (prompt === "custom") {
       const customPrompt = await vscode.window.showInputBox({
-        placeHolder: 'Enter your custom prompt...',
-        prompt: 'What would you like to ask the AI?',
-        value: '',
-        ignoreFocusOut: true
+        placeHolder: "Enter your custom prompt...",
+        prompt: "What would you like to ask the AI?",
+        value: "",
+        ignoreFocusOut: true,
       });
 
       if (!customPrompt) {
@@ -3275,7 +1684,7 @@ Suggestion:`;
     const progressOptions = {
       location: vscode.ProgressLocation.Notification,
       title: "🤖 AI is thinking...",
-      cancellable: true
+      cancellable: true,
     };
 
     try {
@@ -3285,54 +1694,77 @@ Suggestion:`;
         fullPrompt = `Context (selected code):\n\`\`\`${document.languageId}\n${selectedText}\n\`\`\`\n\nUser request: ${prompt}`;
       }
 
-      logDebug("AI Prompt Popup: Sending request", {
+      logDebug(debugOutputChannel, "AI Prompt Popup: Sending request", {
         prompt: prompt,
         hasSelectedText: !!selectedText,
-        language: document.languageId
+        language: document.languageId,
       });
 
-      const response = await vscode.window.withProgress(progressOptions, async (progress, cancellationToken) => {
-        progress.report({ increment: 0, message: 'Preparing request...' });
+      const response = await vscode.window.withProgress(
+        progressOptions,
+        async (progress, cancellationToken) => {
+          progress.report({ increment: 0, message: "Preparing request..." });
 
-        // Check for cancellation before starting
-        if (cancellationToken.isCancellationRequested) {
-          throw new Error('Request cancelled by user');
-        }
-
-        progress.report({ increment: 25, message: 'Sending to AI...' });
-
-        try {
-          const aiResponse = await callLLMWithCancellation(
-            config.apiToken,
-            fullPrompt,
-            config.llmEndpoint,
-            config.llmModel,
-            cancellationToken
-          );
-
-          progress.report({ increment: 100, message: 'Response received!' });
-          return aiResponse;
-        } catch (error) {
+          // Check for cancellation before starting
           if (cancellationToken.isCancellationRequested) {
-            throw new Error('Request cancelled by user');
+            throw new Error("Request cancelled by user");
           }
-          throw error;
+
+          progress.report({ increment: 25, message: "Sending to AI..." });
+
+          try {
+            const aiResponse = await vscode.window.withProgress(
+              progressOptions,
+              async (progress, cancellationToken) => {
+                progress.report({ increment: 0, message: "Sending to AI..." });
+
+                try {
+                  const response = await callLLMWithCancellation(
+                    config.apiToken,
+                    fullPrompt,
+                    config.llmEndpoint,
+                    config.llmModel,
+                    cancellationToken
+                  );
+                  progress.report({ increment: 100, message: "Response received!" });
+                  return response;
+                } catch (error) {
+                  if (cancellationToken.isCancellationRequested) {
+                    throw new Error("Request cancelled by user");
+                  }
+                  throw error;
+                }
+              }
+            );
+
+            if (aiResponse && aiResponse.trim()) {
+              // Show response in a floating popup with actions
+              await showResponsePopup(aiResponse.trim(), editor);
+            } else {
+              vscode.window.showWarningMessage("No response received from AI");
+            }
+          } catch (error) {
+            if (
+              error instanceof Error &&
+              error.message === "Request cancelled by user"
+            ) {
+              vscode.window.showInformationMessage("AI request cancelled");
+            } else {
+              vscode.window.showErrorMessage(`Failed to get AI response: ${error}`);
+              logDebug(debugOutputChannel, "AI Prompt Popup: Error", error);
+            }
+          }
         }
-      });
-
-      if (response && response.trim()) {
-        // Show response in a floating popup with actions
-        await showResponsePopup(response.trim(), editor);
-      } else {
-        vscode.window.showWarningMessage('No response received from AI');
-      }
-
+      );
     } catch (error) {
-      if (error instanceof Error && error.message === 'Request cancelled by user') {
-        vscode.window.showInformationMessage('AI request cancelled');
+      if (
+        error instanceof Error &&
+        error.message === "Request cancelled by user"
+      ) {
+        vscode.window.showInformationMessage("AI request cancelled");
       } else {
         vscode.window.showErrorMessage(`Failed to get AI response: ${error}`);
-        logDebug("AI Prompt Popup: Error", error);
+        logDebug(debugOutputChannel, "AI Prompt Popup: Error", error);
       }
     }
   }
@@ -3350,10 +1782,12 @@ Suggestion:`;
       const abortController = new AbortController();
 
       // Listen for cancellation
-      const cancellationListener = cancellationToken.onCancellationRequested(() => {
-        abortController.abort();
-        reject(new Error('Request cancelled by user'));
-      });
+      const cancellationListener = cancellationToken.onCancellationRequested(
+        () => {
+          abortController.abort();
+          reject(new Error("Request cancelled by user"));
+        }
+      );
 
       // Prepare the request body
       const requestBody = {
@@ -3386,7 +1820,7 @@ Suggestion:`;
             );
           }
 
-          const data = await response.json() as any;
+          const data = (await response.json()) as any;
 
           if (data.error) {
             throw new Error(`API error: ${data.error}`);
@@ -3402,8 +1836,8 @@ Suggestion:`;
           // Clean up cancellation listener
           cancellationListener.dispose();
 
-          if (error.name === 'AbortError') {
-            reject(new Error('Request cancelled by user'));
+          if (error.name === "AbortError") {
+            reject(new Error("Request cancelled by user"));
           } else {
             reject(error);
           }
@@ -3412,18 +1846,21 @@ Suggestion:`;
   }
 
   // Function to show response in a floating popup
-  async function showResponsePopup(response: string, editor: vscode.TextEditor): Promise<void> {
+  async function showResponsePopup(
+    response: string,
+    editor: vscode.TextEditor
+  ): Promise<void> {
     const actions = [
-      { label: '$(insert) Insert code only', value: 'insert' },
-      { label: '$(copy) Copy to clipboard', value: 'copy' },
-      { label: '$(eye) View full response', value: 'view' },
-      { label: '$(close) Close', value: 'close' }
+      { label: "$(insert) Insert code only", value: "insert" },
+      { label: "$(copy) Copy to clipboard", value: "copy" },
+      { label: "$(eye) View full response", value: "view" },
+      { label: "$(close) Close", value: "close" },
     ];
 
     const selection = await vscode.window.showQuickPick(actions, {
-      placeHolder: 'AI Response Ready - Choose action:',
-      title: '🤖 AI Response',
-      ignoreFocusOut: true
+      placeHolder: "AI Response Ready - Choose action:",
+      title: "🤖 AI Response",
+      ignoreFocusOut: true,
     });
 
     if (!selection) {
@@ -3431,7 +1868,7 @@ Suggestion:`;
     }
 
     switch (selection.value) {
-      case 'insert':
+      case "insert":
         try {
           const editorSelection = editor.selection;
 
@@ -3439,65 +1876,76 @@ Suggestion:`;
           const codeBlocks = extractCodeBlocks(response);
 
           if (codeBlocks.length === 0) {
-            vscode.window.showWarningMessage('No code blocks found in AI response. Inserting full response instead.');
+            vscode.window.showWarningMessage(
+              "No code blocks found in AI response. Inserting full response instead."
+            );
             // Insert the full response if no code blocks found
             await insertText(editor, editorSelection, response);
           } else if (codeBlocks.length === 1) {
             // Single code block - insert it directly
             await insertText(editor, editorSelection, codeBlocks[0]);
-            vscode.window.showInformationMessage('Code block inserted successfully!');
+            vscode.window.showInformationMessage(
+              "Code block inserted successfully!"
+            );
           } else {
             // Multiple code blocks - let user choose
             const codeBlockOptions = codeBlocks.map((block, index) => ({
               label: `$(code) Code Block ${index + 1}`,
-              description: `${block.split('\n').length} lines`,
-              value: block
+              description: `${block.split("\n").length} lines`,
+              value: block,
             }));
 
-            const selectedBlock = await vscode.window.showQuickPick(codeBlockOptions, {
-              placeHolder: 'Multiple code blocks found - choose one to insert:',
-              title: '🤖 Select Code Block',
-              ignoreFocusOut: true
-            });
+            const selectedBlock = await vscode.window.showQuickPick(
+              codeBlockOptions,
+              {
+                placeHolder:
+                  "Multiple code blocks found - choose one to insert:",
+                title: "🤖 Select Code Block",
+                ignoreFocusOut: true,
+              }
+            );
 
             if (selectedBlock) {
               await insertText(editor, editorSelection, selectedBlock.value);
-              vscode.window.showInformationMessage('Selected code block inserted successfully!');
+              vscode.window.showInformationMessage(
+                "Selected code block inserted successfully!"
+              );
             }
           }
 
-          logDebug("AI Prompt Popup: Code block inserted", {
+          logDebug(debugOutputChannel, "AI Prompt Popup: Code block inserted", {
             responseLength: response.length,
             codeBlocksFound: codeBlocks.length,
-            position: editorSelection.active.toString()
+            position: editorSelection.active.toString(),
           });
         } catch (error) {
           vscode.window.showErrorMessage(`Failed to insert code: ${error}`);
         }
         break;
 
-      case 'copy':
+      case "copy":
         try {
           // Extract code blocks for copying too
           const codeBlocks = extractCodeBlocks(response);
-          const textToCopy = codeBlocks.length > 0 ? codeBlocks.join('\n\n') : response;
+          const textToCopy =
+            codeBlocks.length > 0 ? codeBlocks.join("\n\n") : response;
           await vscode.env.clipboard.writeText(textToCopy);
           vscode.window.showInformationMessage(
             codeBlocks.length > 0
               ? `Code blocks copied to clipboard! (${codeBlocks.length} blocks)`
-              : 'Response copied to clipboard!'
+              : "Response copied to clipboard!"
           );
         } catch (error) {
           vscode.window.showErrorMessage(`Failed to copy response: ${error}`);
         }
         break;
 
-      case 'view':
+      case "view":
         // Show full response in a new document
         await showReviewResults(response, editor.document.fileName);
         break;
 
-      case 'close':
+      case "close":
         // Do nothing, just close
         break;
     }
@@ -3512,7 +1960,7 @@ Suggestion:`;
     let match;
 
     while ((match = codeBlockRegex.exec(response)) !== null) {
-      const language = match[1] || '';
+      const language = match[1] || "";
       const code = match[2].trim();
 
       // Only include non-empty code blocks
@@ -3526,7 +1974,7 @@ Suggestion:`;
       const inlineCodeRegex = /`([^`]+)`/g;
       while ((match = inlineCodeRegex.exec(response)) !== null) {
         const code = match[1].trim();
-        if (code.length > 0 && !code.includes(' ') && code.length > 3) {
+        if (code.length > 0 && !code.includes(" ") && code.length > 3) {
           // Only include single words/phrases that look like code
           codeBlocks.push(code);
         }
@@ -3537,8 +1985,12 @@ Suggestion:`;
   }
 
   // Helper function to insert text at cursor or replace selection
-  async function insertText(editor: vscode.TextEditor, selection: vscode.Selection, text: string): Promise<void> {
-    await editor.edit(editBuilder => {
+  async function insertText(
+    editor: vscode.TextEditor,
+    selection: vscode.Selection,
+    text: string
+  ): Promise<void> {
+    await editor.edit((editBuilder) => {
       if (selection.isEmpty) {
         // Insert at cursor position
         editBuilder.insert(selection.active, text);
@@ -3553,11 +2005,9 @@ Suggestion:`;
   const showDebugOutputDisposable = vscode.commands.registerCommand(
     "ai-reviewer.showDebugOutput",
     () => {
-      if (!debugOutputChannel) {
-        debugOutputChannel =
-          vscode.window.createOutputChannel("AI Reviewer Debug");
+      if (debugOutputChannel) {
+        debugOutputChannel.show();
       }
-      debugOutputChannel.show();
     }
   );
 
@@ -3566,7 +2016,7 @@ Suggestion:`;
     (event) => {
       if (event.affectsConfiguration("aiReviewer")) {
         const newConfig = getConfiguration();
-        logDebug("AI Reviewer configuration updated", {
+        logDebug(debugOutputChannel, "AI Reviewer configuration updated", {
           apiToken: newConfig.apiToken
             ? "***" + newConfig.apiToken.slice(-4)
             : "Not set",
@@ -3586,6 +2036,120 @@ Suggestion:`;
     }
   );
 
+  // Set up message handling for secondary sidebar providers
+  function setupSecondarySidebarMessageHandling(
+    historyProvider: HistoryPanelProvider,
+    analyticsProvider: AnalyticsPanelProvider,
+    templatesProvider: TemplatesPanelProvider,
+    manager: SecondarySidebarManager
+  ) {
+    // History panel message handling
+    historyProvider.onDidReceiveMessage = (message) => {
+      switch (message.command) {
+        case 'getHistory':
+          const history = manager.getReviewHistory();
+          historyProvider.webviewView?.webview.postMessage({
+            command: 'updateHistory',
+            history: history
+          });
+          break;
+        case 'viewReview':
+          const review = manager.getReviewById(message.id);
+          if (review) {
+            vscode.window.showInformationMessage(`Viewing review: ${review.fileName}`);
+            // You could open the review in a new editor or panel here
+          }
+          break;
+        case 'reapplyReview':
+          const reviewToReapply = manager.getReviewById(message.id);
+          if (reviewToReapply) {
+            vscode.window.showInformationMessage(`Reapplying review: ${reviewToReapply.fileName}`);
+            // You could reapply the review suggestions here
+          }
+          break;
+      }
+    };
+
+    // Analytics panel message handling
+    analyticsProvider.onDidReceiveMessage = (message) => {
+      switch (message.command) {
+        case 'getAnalytics':
+          const analytics = manager.getAnalytics();
+          analyticsProvider.webviewView?.webview.postMessage({
+            command: 'updateAnalytics',
+            analytics: analytics
+          });
+          break;
+        case 'refreshAnalytics':
+          const refreshedAnalytics = manager.getAnalytics();
+          analyticsProvider.webviewView?.webview.postMessage({
+            command: 'updateAnalytics',
+            analytics: refreshedAnalytics
+          });
+          break;
+      }
+    };
+
+    // Templates panel message handling
+    templatesProvider.onDidReceiveMessage = (message) => {
+      switch (message.command) {
+        case 'getTemplates':
+          const templates = manager.getTemplates();
+          templatesProvider.webviewView?.webview.postMessage({
+            command: 'updateTemplates',
+            templates: templates
+          });
+          break;
+        case 'useTemplate':
+          const template = manager.getTemplateById(message.templateId);
+          if (template) {
+            vscode.window.showInformationMessage(`Using template: ${template.name}`);
+            // You could apply the template to the current review here
+          }
+          break;
+        case 'editTemplate':
+          const templateToEdit = manager.getTemplateById(message.templateId);
+          if (templateToEdit) {
+            vscode.window.showInformationMessage(`Editing template: ${templateToEdit.name}`);
+            // You could open a template editor here
+          }
+          break;
+        case 'duplicateTemplate':
+          manager.duplicateTemplate(message.templateId);
+          const updatedTemplates = manager.getTemplates();
+          templatesProvider.webviewView?.webview.postMessage({
+            command: 'updateTemplates',
+            templates: updatedTemplates
+          });
+          break;
+        case 'addNewTemplate':
+          vscode.window.showInformationMessage('Add new template functionality');
+          // You could open a template creation dialog here
+          break;
+      }
+    };
+  }
+
+  // Update the review functions to add to history
+  async function addReviewToHistory(fileName: string, status: 'success' | 'warning' | 'error', reviewData?: any) {
+    const manager = SecondarySidebarManager.getInstance();
+    manager.addReviewToHistory(fileName, status, reviewData);
+  }
+
+  // Command to show the right panel
+  const showRightPanelDisposable = vscode.commands.registerCommand(
+    "ai-reviewer.showRightPanel",
+    async () => {
+      try {
+        // Show the right panel by focusing on one of its views
+        await vscode.commands.executeCommand('ai-reviewer-history.focus');
+        vscode.window.showInformationMessage('AI Reviewer Tools panel opened');
+      } catch (error) {
+        vscode.window.showErrorMessage('Failed to open AI Reviewer Tools panel');
+      }
+    }
+  );
+
   context.subscriptions.push(
     disposable,
     showSettingsDisposable,
@@ -3598,7 +2162,8 @@ Suggestion:`;
     acceptGhostSuggestionDisposable,
     toggleGhostTextDisposable,
     testGhostTextDisposable,
-    aiPromptPopupDisposable
+    aiPromptPopupDisposable,
+    showRightPanelDisposable
   );
 }
 

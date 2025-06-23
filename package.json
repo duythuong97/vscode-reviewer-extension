@@ -69,6 +69,11 @@
           "id": "ai-reviewer-sidebar",
           "title": "AI Reviewer",
           "icon": "$(comment-discussion)"
+        },
+        {
+          "id": "ai-reviewer-secondary-panel",
+          "title": "AI Reviewer Tools",
+          "icon": "$(tools)"
         }
       ]
     },
@@ -82,6 +87,23 @@
         {
           "id": "ai-reviewer-chat",
           "name": "Chat",
+          "type": "webview"
+        }
+      ],
+      "ai-reviewer-secondary-panel": [
+        {
+          "id": "ai-reviewer-history",
+          "name": "Review History",
+          "type": "webview"
+        },
+        {
+          "id": "ai-reviewer-analytics",
+          "name": "Analytics",
+          "type": "webview"
+        },
+        {
+          "id": "ai-reviewer-templates",
+          "name": "Templates",
           "type": "webview"
         }
       ]
@@ -127,6 +149,30 @@
       {
         "command": "ai-reviewer.aiPromptPopup",
         "title": "AI Reviewer: AI Prompt Popup"
+      },
+      {
+        "command": "ai-reviewer.viewReviewHistory",
+        "title": "AI Reviewer: View Review History"
+      },
+      {
+        "command": "ai-reviewer.refreshAnalytics",
+        "title": "AI Reviewer: Refresh Analytics"
+      },
+      {
+        "command": "ai-reviewer.useTemplate",
+        "title": "AI Reviewer: Use Template"
+      },
+      {
+        "command": "ai-reviewer.editTemplate",
+        "title": "AI Reviewer: Edit Template"
+      },
+      {
+        "command": "ai-reviewer.addTemplate",
+        "title": "AI Reviewer: Add Template"
+      },
+      {
+        "command": "ai-reviewer.showRightPanel",
+        "title": "AI Reviewer: Show Right Panel"
       }
     ],
     "menus": {
