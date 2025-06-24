@@ -15,16 +15,23 @@
     "configuration": {
       "title": "AI Reviewer",
       "properties": {
+        "aiReviewer.authType": {
+          "type": "string",
+          "enum": ["token", "cookie"],
+          "default": "token",
+          "description": "Authentication type for LLM services: 'token' for API token, 'cookie' for cookie-based auth",
+          "scope": "application"
+        },
         "aiReviewer.apiToken": {
           "type": "string",
           "default": "",
           "description": "API token for AI review service",
           "scope": "application"
         },
-        "aiReviewer.codingConvention": {
+        "aiReviewer.cookie": {
           "type": "string",
           "default": "",
-          "description": "Coding convention rules for AI review",
+          "description": "Cookie for cookie-based authentication with LLM services",
           "scope": "application"
         },
         "aiReviewer.llmEndpoint": {
@@ -33,32 +40,99 @@
           "description": "LLM API endpoint URL",
           "scope": "application"
         },
+        "aiReviewer.providerType": {
+          "type": "string",
+          "enum": ["ollama", "openai"],
+          "default": "ollama",
+          "description": "Type of LLM provider to use",
+          "scope": "application"
+        },
         "aiReviewer.llmModel": {
           "type": "string",
           "default": "llama3",
           "description": "LLM model name to use for code review",
           "scope": "application"
         },
-        "aiReviewer.suggestionDisplayMode": {
+        "aiReviewer.maxTokens": {
+          "type": "number",
+          "default": 2000,
+          "description": "Maximum number of tokens for LLM responses",
+          "scope": "application"
+        },
+        "aiReviewer.temperature": {
+          "type": "number",
+          "default": 0.7,
+          "minimum": 0,
+          "maximum": 2,
+          "description": "Temperature for LLM responses (0 = deterministic, 2 = very random)",
+          "scope": "application"
+        },
+        "aiReviewer.codingConvention": {
           "type": "string",
-          "enum": [
-            "panel",
-            "inline"
-          ],
-          "default": "panel",
-          "description": "How to display convention suggestions: 'panel' for a separate webview panel, 'inline' for inline diagnostics in the editor",
+          "default": "",
+          "description": "Coding convention rules for AI review",
           "scope": "application"
         },
         "aiReviewer.baseBranch": {
           "type": "string",
-          "default": "develop",
+          "default": "main",
           "description": "Base branch to compare against when reviewing PR changes (e.g., main, master, develop)",
+          "scope": "application"
+        },
+        "aiReviewer.suggestionDisplayMode": {
+          "type": "string",
+          "enum": ["panel", "inline"],
+          "default": "panel",
+          "description": "How to display convention suggestions: 'panel' for a separate webview panel, 'inline' for inline diagnostics in the editor",
+          "scope": "application"
+        },
+        "aiReviewer.autoReview": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically review files when saved",
+          "scope": "application"
+        },
+        "aiReviewer.severityThreshold": {
+          "type": "string",
+          "enum": ["low", "medium", "high"],
+          "default": "medium",
+          "description": "Minimum severity level to show in reviews",
+          "scope": "application"
+        },
+        "aiReviewer.includeSuggestions": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show code suggestions in reviews",
+          "scope": "application"
+        },
+        "aiReviewer.showNotifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Display notifications for review results",
+          "scope": "application"
+        },
+        "aiReviewer.themeAware": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use VS Code theme colors for UI",
           "scope": "application"
         },
         "aiReviewer.ghostTextEnabled": {
           "type": "boolean",
           "default": true,
           "description": "Enable AI-powered ghost text suggestions while typing",
+          "scope": "application"
+        },
+        "aiReviewer.debugMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable debug logging for AI Reviewer",
+          "scope": "application"
+        },
+        "aiReviewer.customPrompt": {
+          "type": "string",
+          "default": "",
+          "description": "Custom review prompt template",
           "scope": "application"
         }
       }
@@ -80,29 +154,29 @@
     "views": {
       "ai-reviewer-sidebar": [
         {
-          "id": "ai-reviewer-settings",
+          "id": "aiReviewer.settingsPanel",
           "name": "Settings",
           "type": "webview"
         },
         {
-          "id": "ai-reviewer-chat",
+          "id": "aiReviewer.chatPanel",
           "name": "Chat",
           "type": "webview"
         }
       ],
       "ai-reviewer-secondary-panel": [
         {
-          "id": "ai-reviewer-history",
+          "id": "aiReviewer.historyPanel",
           "name": "Review History",
           "type": "webview"
         },
         {
-          "id": "ai-reviewer-analytics",
+          "id": "aiReviewer.analyticsPanel",
           "name": "Analytics",
           "type": "webview"
         },
         {
-          "id": "ai-reviewer-templates",
+          "id": "aiReviewer.templatesPanel",
           "name": "Templates",
           "type": "webview"
         }
@@ -173,13 +247,21 @@
       {
         "command": "ai-reviewer.showRightPanel",
         "title": "AI Reviewer: Show Right Panel"
+      },
+      {
+        "command": "ai-reviewer.showReviewResultsInChat",
+        "title": "AI Reviewer: Show Review Results in Chat"
+      },
+      {
+        "command": "aiReviewer.chatPanel.focus",
+        "title": "Focus AI Reviewer Chat Panel"
       }
     ],
     "menus": {
       "view/title": [
         {
           "command": "ai-reviewer.openSettingsPanel",
-          "when": "view == ai-reviewer-settings",
+          "when": "view == aiReviewer.settingsPanel",
           "group": "navigation"
         }
       ],

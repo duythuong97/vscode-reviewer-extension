@@ -1,168 +1,118 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
+import * as fs from 'fs';
 
 export class HistoryPanelProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = 'ai-reviewer-history';
-  public webviewView?: vscode.WebviewView;
-  public onDidReceiveMessage?: (message: any) => void;
+    public static readonly viewType = 'aiReviewer.historyPanel';
+    private _view?: vscode.WebviewView;
 
-  constructor(private readonly _extensionUri: vscode.Uri) {}
+    constructor(
+        private readonly _extensionUri: vscode.Uri,
+    ) { }
 
-  public resolveWebviewView(
-    webviewView: vscode.WebviewView,
-    context: vscode.WebviewViewResolveContext,
-    _token: vscode.CancellationToken,
-  ) {
-    this.webviewView = webviewView;
+    public resolveWebviewView(
+        webviewView: vscode.WebviewView,
+        context: vscode.WebviewViewResolveContext,
+        _token: vscode.CancellationToken,
+    ) {
+        this._view = webviewView;
 
-    webviewView.webview.options = {
-      enableScripts: true,
-      localResourceRoots: [this._extensionUri]
-    };
+        webviewView.webview.options = {
+            enableScripts: true,
+            localResourceRoots: [
+                this._extensionUri
+            ]
+        };
 
-    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+        // Get the HTML content from the external file
+        const htmlPath = path.join(this._extensionUri.fsPath, 'media', 'historyPanel.html');
+        let htmlContent = '';
 
-    // Set up message handling
-    webviewView.webview.onDidReceiveMessage((message) => {
-      if (this.onDidReceiveMessage) {
-        this.onDidReceiveMessage(message);
-      }
-    });
-  }
+        try {
+            htmlContent = fs.readFileSync(htmlPath, 'utf8');
+        } catch (error) {
+            console.error('Error reading historyPanel.html:', error);
+            htmlContent = this.getFallbackHtml();
+        }
 
-  private _getHtmlForWebview(webview: vscode.Webview) {
-    return `<!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Review History</title>
-        <style>
-            body {
-                font-family: var(--vscode-font-family);
-                color: var(--vscode-foreground);
-                background-color: var(--vscode-editor-background);
-                padding: 10px;
-                margin: 0;
-            }
-            .history-item {
-                border: 1px solid var(--vscode-panel-border);
-                border-radius: 4px;
-                padding: 8px;
-                margin-bottom: 8px;
-                background-color: var(--vscode-editor-background);
-            }
-            .history-item:hover {
-                background-color: var(--vscode-list-hoverBackground);
-            }
-            .file-name {
-                font-weight: bold;
-                color: var(--vscode-textLink-foreground);
-            }
-            .timestamp {
-                font-size: 0.8em;
-                color: var(--vscode-descriptionForeground);
-            }
-            .status {
-                display: inline-block;
-                padding: 2px 6px;
-                border-radius: 3px;
-                font-size: 0.8em;
-                margin-left: 8px;
-            }
-            .status.success {
-                background-color: var(--vscode-testing-iconPassed);
-                color: white;
-            }
-            .status.warning {
-                background-color: var(--vscode-testing-iconFailed);
-                color: white;
-            }
-            .empty-state {
-                text-align: center;
-                color: var(--vscode-descriptionForeground);
-                padding: 20px;
-            }
-            button {
-                background-color: var(--vscode-button-background);
-                color: var(--vscode-button-foreground);
-                border: none;
-                padding: 6px 12px;
-                border-radius: 3px;
-                cursor: pointer;
-                margin: 2px;
-            }
-            button:hover {
-                background-color: var(--vscode-button-hoverBackground);
-            }
-        </style>
-    </head>
-    <body>
-        <h3>Review History</h3>
-        <div id="history-container">
-            <div class="empty-state">
-                <p>No review history yet</p>
-                <p>Start reviewing files to see history here</p>
-            </div>
-        </div>
-        <script>
-            const vscode = acquireVsCodeApi();
+        webviewView.webview.html = htmlContent;
 
-            // Listen for messages from the extension
-            window.addEventListener('message', event => {
-                const message = event.data;
+        // Handle messages from the webview
+        webviewView.webview.onDidReceiveMessage(
+            message => {
                 switch (message.command) {
-                    case 'updateHistory':
-                        updateHistoryDisplay(message.history);
+                    case 'getHistory':
+                        this.sendHistory();
+                        break;
+                    case 'viewReview':
+                        this.viewReview(message.id);
+                        break;
+                    case 'reapplyReview':
+                        this.reapplyReview(message.id);
                         break;
                 }
-            });
-
-            function updateHistoryDisplay(history) {
-                const container = document.getElementById('history-container');
-
-                if (!history || history.length === 0) {
-                    container.innerHTML = \`
-                        <div class="empty-state">
-                            <p>No review history yet</p>
-                            <p>Start reviewing files to see history here</p>
-                        </div>
-                    \`;
-                    return;
-                }
-
-                container.innerHTML = history.map(item => \`
-                    <div class="history-item">
-                        <div class="file-name">\${item.fileName}</div>
-                        <div class="timestamp">\${item.timestamp}</div>
-                        <span class="status \${item.status}">\${item.status}</span>
-                        <div style="margin-top: 4px;">
-                            <button onclick="viewReview('\${item.id}')">View</button>
-                            <button onclick="reapplyReview('\${item.id}')">Reapply</button>
-                        </div>
-                    </div>
-                \`).join('');
             }
+        );
 
-            function viewReview(id) {
-                vscode.postMessage({
-                    command: 'viewReview',
-                    id: id
-                });
+        // Send initial history data
+        this.sendHistory();
+    }
+
+    private getFallbackHtml(): string {
+        return `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>History Panel</title>
+            </head>
+            <body>
+                <h3>Review History</h3>
+                <p>Error loading history panel. Please check the extension configuration.</p>
+            </body>
+            </html>
+        `;
+    }
+
+    private sendHistory() {
+        // Mock history data - in a real implementation, this would come from storage
+        const history = [
+            {
+                id: '1',
+                fileName: 'example.ts',
+                timestamp: new Date().toLocaleString(),
+                status: 'success'
+            },
+            {
+                id: '2',
+                fileName: 'test.js',
+                timestamp: new Date(Date.now() - 86400000).toLocaleString(),
+                status: 'warning'
             }
+        ];
 
-            function reapplyReview(id) {
-                vscode.postMessage({
-                    command: 'reapplyReview',
-                    id: id
-                });
-            }
+        this._view?.webview.postMessage({
+            command: 'updateHistory',
+            history: history
+        });
+    }
 
-            // Request initial history data
-            vscode.postMessage({
-                command: 'getHistory'
-            });
-        </script>
-    </body>
-    </html>`;
-  }
+    private viewReview(id: string) {
+        // Handle viewing a specific review
+        console.log('Viewing review:', id);
+        vscode.window.showInformationMessage(`Viewing review ${id}`);
+    }
+
+    private reapplyReview(id: string) {
+        // Handle reapplying a review
+        console.log('Reapplying review:', id);
+        vscode.window.showInformationMessage(`Reapplying review ${id}`);
+    }
+
+    public updateHistory(newHistory: any[]) {
+        this._view?.webview.postMessage({
+            command: 'updateHistory',
+            history: newHistory
+        });
+    }
 }

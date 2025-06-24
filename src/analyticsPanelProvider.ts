@@ -1,211 +1,101 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
+import * as fs from 'fs';
 
 export class AnalyticsPanelProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = 'ai-reviewer-analytics';
-  public webviewView?: vscode.WebviewView;
-  public onDidReceiveMessage?: (message: any) => void;
+  public static readonly viewType = 'aiReviewer.analyticsPanel';
+  private _view?: vscode.WebviewView;
 
-  constructor(private readonly _extensionUri: vscode.Uri) {}
+  constructor(
+    private readonly _extensionUri: vscode.Uri,
+  ) { }
 
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
     context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken,
   ) {
-    this.webviewView = webviewView;
+    this._view = webviewView;
 
     webviewView.webview.options = {
       enableScripts: true,
-      localResourceRoots: [this._extensionUri]
+      localResourceRoots: [
+        this._extensionUri
+      ]
     };
 
-    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+    // Get the HTML content from the external file
+    const htmlPath = path.join(this._extensionUri.fsPath, 'media', 'analyticsPanel.html');
+    let htmlContent = '';
 
-    // Set up message handling
-    webviewView.webview.onDidReceiveMessage((message) => {
-      if (this.onDidReceiveMessage) {
-        this.onDidReceiveMessage(message);
+    try {
+      htmlContent = fs.readFileSync(htmlPath, 'utf8');
+    } catch (error) {
+      console.error('Error reading analyticsPanel.html:', error);
+      htmlContent = this.getFallbackHtml();
+    }
+
+    webviewView.webview.html = htmlContent;
+
+    // Handle messages from the webview
+    webviewView.webview.onDidReceiveMessage(
+      message => {
+        switch (message.command) {
+          case 'getAnalytics':
+            this.sendAnalytics();
+            break;
+          case 'refreshAnalytics':
+            this.refreshAnalytics();
+            break;
+        }
       }
+    );
+
+    // Send initial analytics data
+    this.sendAnalytics();
+  }
+
+  private getFallbackHtml(): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Analytics Panel</title>
+      </head>
+      <body>
+        <h3>Analytics Dashboard</h3>
+        <p>Error loading analytics panel. Please check the extension configuration.</p>
+      </body>
+      </html>
+    `;
+  }
+
+  private sendAnalytics() {
+    // Mock analytics data - in a real implementation, this would come from storage
+    const analytics = {
+      totalReviews: 42,
+      totalIssues: 15,
+      successRate: 64,
+      weeklyData: [5, 8, 12, 6, 9, 3, 1]
+    };
+
+    this._view?.webview.postMessage({
+      command: 'updateAnalytics',
+      analytics: analytics
     });
   }
 
-  private _getHtmlForWebview(webview: vscode.Webview) {
-    return `<!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Analytics</title>
-        <style>
-            body {
-                font-family: var(--vscode-font-family);
-                color: var(--vscode-foreground);
-                background-color: var(--vscode-editor-background);
-                padding: 10px;
-                margin: 0;
-            }
-            .metric-card {
-                border: 1px solid var(--vscode-panel-border);
-                border-radius: 4px;
-                padding: 12px;
-                margin-bottom: 12px;
-                background-color: var(--vscode-editor-background);
-            }
-            .metric-title {
-                font-weight: bold;
-                margin-bottom: 8px;
-                color: var(--vscode-textLink-foreground);
-            }
-            .metric-value {
-                font-size: 1.5em;
-                font-weight: bold;
-                color: var(--vscode-foreground);
-            }
-            .metric-description {
-                font-size: 0.9em;
-                color: var(--vscode-descriptionForeground);
-                margin-top: 4px;
-            }
-            .chart-container {
-                height: 200px;
-                border: 1px solid var(--vscode-panel-border);
-                border-radius: 4px;
-                margin: 10px 0;
-                display: flex;
-                align-items: end;
-                justify-content: space-around;
-                padding: 10px;
-                background-color: var(--vscode-editor-background);
-            }
-            .chart-bar {
-                background-color: var(--vscode-textLink-foreground);
-                width: 30px;
-                border-radius: 2px 2px 0 0;
-                position: relative;
-            }
-            .chart-label {
-                position: absolute;
-                bottom: -20px;
-                left: 50%;
-                transform: translateX(-50%);
-                font-size: 0.8em;
-                color: var(--vscode-descriptionForeground);
-            }
-            .refresh-button {
-                background-color: var(--vscode-button-background);
-                color: var(--vscode-button-foreground);
-                border: none;
-                padding: 6px 12px;
-                border-radius: 3px;
-                cursor: pointer;
-                margin-bottom: 10px;
-            }
-            .refresh-button:hover {
-                background-color: var(--vscode-button-hoverBackground);
-            }
-        </style>
-    </head>
-    <body>
-        <h3>Analytics Dashboard</h3>
-        <button class="refresh-button" onclick="refreshAnalytics()">Refresh Data</button>
+  private refreshAnalytics() {
+    // Refresh analytics data
+    console.log('Refreshing analytics');
+    this.sendAnalytics();
+  }
 
-        <div class="metric-card">
-            <div class="metric-title">Total Reviews</div>
-            <div class="metric-value" id="total-reviews">0</div>
-            <div class="metric-description">Number of files reviewed</div>
-        </div>
-
-        <div class="metric-card">
-            <div class="metric-title">Issues Found</div>
-            <div class="metric-value" id="total-issues">0</div>
-            <div class="metric-description">Total issues detected</div>
-        </div>
-
-        <div class="metric-card">
-            <div class="metric-title">Success Rate</div>
-            <div class="metric-value" id="success-rate">0%</div>
-            <div class="metric-description">Reviews without issues</div>
-        </div>
-
-        <div class="metric-card">
-            <div class="metric-title">Weekly Activity</div>
-            <div class="chart-container" id="weekly-chart">
-                <div class="chart-bar" style="height: 20px;">
-                    <div class="chart-label">Mon</div>
-                </div>
-                <div class="chart-bar" style="height: 40px;">
-                    <div class="chart-label">Tue</div>
-                </div>
-                <div class="chart-bar" style="height: 30px;">
-                    <div class="chart-label">Wed</div>
-                </div>
-                <div class="chart-bar" style="height: 60px;">
-                    <div class="chart-label">Thu</div>
-                </div>
-                <div class="chart-bar" style="height: 25px;">
-                    <div class="chart-label">Fri</div>
-                </div>
-                <div class="chart-bar" style="height: 15px;">
-                    <div class="chart-label">Sat</div>
-                </div>
-                <div class="chart-bar" style="height: 10px;">
-                    <div class="chart-label">Sun</div>
-                </div>
-            </div>
-        </div>
-
-        <script>
-            const vscode = acquireVsCodeApi();
-
-            // Listen for messages from the extension
-            window.addEventListener('message', event => {
-                const message = event.data;
-                switch (message.command) {
-                    case 'updateAnalytics':
-                        updateAnalyticsDisplay(message.analytics);
-                        break;
-                }
-            });
-
-            function updateAnalyticsDisplay(analytics) {
-                if (!analytics) return;
-
-                document.getElementById('total-reviews').textContent = analytics.totalReviews || 0;
-                document.getElementById('total-issues').textContent = analytics.totalIssues || 0;
-                document.getElementById('success-rate').textContent = \`\${analytics.successRate || 0}%\`;
-
-                if (analytics.weeklyData) {
-                    updateWeeklyChart(analytics.weeklyData);
-                }
-            }
-
-            function updateWeeklyChart(weeklyData) {
-                const chartContainer = document.getElementById('weekly-chart');
-                const maxValue = Math.max(...weeklyData);
-
-                chartContainer.innerHTML = weeklyData.map((value, index) => {
-                    const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
-                    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                    return \`
-                        <div class="chart-bar" style="height: \${height}px;">
-                            <div class="chart-label">\${days[index]}</div>
-                        </div>
-                    \`;
-                }).join('');
-            }
-
-            function refreshAnalytics() {
-                vscode.postMessage({
-                    command: 'refreshAnalytics'
-                });
-            }
-
-            // Request initial analytics data
-            vscode.postMessage({
-                command: 'getAnalytics'
-            });
-        </script>
-    </body>
-    </html>`;
+  public updateAnalytics(newAnalytics: any) {
+    this._view?.webview.postMessage({
+      command: 'updateAnalytics',
+      analytics: newAnalytics
+    });
   }
 }

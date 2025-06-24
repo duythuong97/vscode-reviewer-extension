@@ -1,223 +1,145 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
+import * as fs from 'fs';
 
 export class TemplatesPanelProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = 'ai-reviewer-templates';
-  public webviewView?: vscode.WebviewView;
-  public onDidReceiveMessage?: (message: any) => void;
+    public static readonly viewType = 'aiReviewer.templatesPanel';
+    private _view?: vscode.WebviewView;
 
-  constructor(private readonly _extensionUri: vscode.Uri) {}
+    constructor(
+        private readonly _extensionUri: vscode.Uri,
+    ) { }
 
-  public resolveWebviewView(
-    webviewView: vscode.WebviewView,
-    context: vscode.WebviewViewResolveContext,
-    _token: vscode.CancellationToken,
-  ) {
-    this.webviewView = webviewView;
+    public resolveWebviewView(
+        webviewView: vscode.WebviewView,
+        context: vscode.WebviewViewResolveContext,
+        _token: vscode.CancellationToken,
+    ) {
+        this._view = webviewView;
 
-    webviewView.webview.options = {
-      enableScripts: true,
-      localResourceRoots: [this._extensionUri]
-    };
+        webviewView.webview.options = {
+            enableScripts: true,
+            localResourceRoots: [
+                this._extensionUri
+            ]
+        };
 
-    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+        // Get the HTML content from the external file
+        const htmlPath = path.join(this._extensionUri.fsPath, 'media', 'templatesPanel.html');
+        let htmlContent = '';
 
-    // Set up message handling
-    webviewView.webview.onDidReceiveMessage((message) => {
-      if (this.onDidReceiveMessage) {
-        this.onDidReceiveMessage(message);
-      }
-    });
-  }
+        try {
+            htmlContent = fs.readFileSync(htmlPath, 'utf8');
+        } catch (error) {
+            console.error('Error reading templatesPanel.html:', error);
+            htmlContent = this.getFallbackHtml();
+        }
 
-  private _getHtmlForWebview(webview: vscode.Webview) {
-    return `<!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Templates</title>
-        <style>
-            body {
-                font-family: var(--vscode-font-family);
-                color: var(--vscode-foreground);
-                background-color: var(--vscode-editor-background);
-                padding: 10px;
-                margin: 0;
-            }
-            .template-item {
-                border: 1px solid var(--vscode-panel-border);
-                border-radius: 4px;
-                padding: 10px;
-                margin-bottom: 10px;
-                background-color: var(--vscode-editor-background);
-                cursor: pointer;
-            }
-            .template-item:hover {
-                background-color: var(--vscode-list-hoverBackground);
-            }
-            .template-title {
-                font-weight: bold;
-                color: var(--vscode-textLink-foreground);
-                margin-bottom: 4px;
-            }
-            .template-description {
-                font-size: 0.9em;
-                color: var(--vscode-descriptionForeground);
-                margin-bottom: 8px;
-            }
-            .template-tags {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 4px;
-            }
-            .tag {
-                background-color: var(--vscode-badge-background);
-                color: var(--vscode-badge-foreground);
-                padding: 2px 6px;
-                border-radius: 3px;
-                font-size: 0.8em;
-            }
-            .add-template-btn {
-                background-color: var(--vscode-button-background);
-                color: var(--vscode-button-foreground);
-                border: none;
-                padding: 8px 12px;
-                border-radius: 3px;
-                cursor: pointer;
-                width: 100%;
-                margin-bottom: 10px;
-            }
-            .add-template-btn:hover {
-                background-color: var(--vscode-button-hoverBackground);
-            }
-            .template-actions {
-                display: flex;
-                gap: 4px;
-                margin-top: 8px;
-            }
-            .action-btn {
-                background-color: var(--vscode-button-secondaryBackground);
-                color: var(--vscode-button-secondaryForeground);
-                border: none;
-                padding: 4px 8px;
-                border-radius: 3px;
-                cursor: pointer;
-                font-size: 0.8em;
-            }
-            .action-btn:hover {
-                background-color: var(--vscode-button-secondaryHoverBackground);
-            }
-            .action-btn.primary {
-                background-color: var(--vscode-button-background);
-                color: var(--vscode-button-foreground);
-            }
-            .action-btn.primary:hover {
-                background-color: var(--vscode-button-hoverBackground);
-            }
-        </style>
-    </head>
-    <body>
-        <h3>Review Templates</h3>
-        <button class="add-template-btn" onclick="addNewTemplate()">+ Add New Template</button>
+        webviewView.webview.html = htmlContent;
 
-        <div id="templates-container">
-            <div class="template-item" onclick="useTemplate('default')">
-                <div class="template-title">Default Review</div>
-                <div class="template-description">Standard code review with quality and security checks</div>
-                <div class="template-tags">
-                    <span class="tag">default</span>
-                    <span class="tag">quality</span>
-                    <span class="tag">security</span>
-                </div>
-                <div class="template-actions">
-                    <button class="action-btn primary" onclick="useTemplate('default'); event.stopPropagation();">Use</button>
-                    <button class="action-btn" onclick="editTemplate('default'); event.stopPropagation();">Edit</button>
-                    <button class="action-btn" onclick="duplicateTemplate('default'); event.stopPropagation();">Duplicate</button>
-                </div>
-            </div>
-
-            <div class="template-item" onclick="useTemplate('performance')">
-                <div class="template-title">Performance Review</div>
-                <div class="template-description">Focus on performance optimization and efficiency</div>
-                <div class="template-tags">
-                    <span class="tag">performance</span>
-                    <span class="tag">optimization</span>
-                    <span class="tag">efficiency</span>
-                </div>
-                <div class="template-actions">
-                    <button class="action-btn primary" onclick="useTemplate('performance'); event.stopPropagation();">Use</button>
-                    <button class="action-btn" onclick="editTemplate('performance'); event.stopPropagation();">Edit</button>
-                    <button class="action-btn" onclick="duplicateTemplate('performance'); event.stopPropagation();">Duplicate</button>
-                </div>
-            </div>
-
-            <div class="template-item" onclick="useTemplate('security')">
-                <div class="template-title">Security Review</div>
-                <div class="template-description">Comprehensive security vulnerability assessment</div>
-                <div class="template-tags">
-                    <span class="tag">security</span>
-                    <span class="tag">vulnerability</span>
-                    <span class="tag">assessment</span>
-                </div>
-                <div class="template-actions">
-                    <button class="action-btn primary" onclick="useTemplate('security'); event.stopPropagation();">Use</button>
-                    <button class="action-btn" onclick="editTemplate('security'); event.stopPropagation();">Edit</button>
-                    <button class="action-btn" onclick="duplicateTemplate('security'); event.stopPropagation();">Duplicate</button>
-                </div>
-            </div>
-        </div>
-
-        <script>
-            const vscode = acquireVsCodeApi();
-
-            // Listen for messages from the extension
-            window.addEventListener('message', event => {
-                const message = event.data;
+        // Handle messages from the webview
+        webviewView.webview.onDidReceiveMessage(
+            message => {
                 switch (message.command) {
-                    case 'updateTemplates':
-                        updateTemplatesDisplay(message.templates);
+                    case 'getTemplates':
+                        this.sendTemplates();
+                        break;
+                    case 'useTemplate':
+                        this.useTemplate(message.templateId);
+                        break;
+                    case 'editTemplate':
+                        this.editTemplate(message.templateId);
+                        break;
+                    case 'duplicateTemplate':
+                        this.duplicateTemplate(message.templateId);
+                        break;
+                    case 'addNewTemplate':
+                        this.addNewTemplate();
                         break;
                 }
-            });
-
-            function useTemplate(templateId) {
-                vscode.postMessage({
-                    command: 'useTemplate',
-                    templateId: templateId
-                });
             }
+        );
 
-            function editTemplate(templateId) {
-                vscode.postMessage({
-                    command: 'editTemplate',
-                    templateId: templateId
-                });
+        // Send initial templates data
+        this.sendTemplates();
+    }
+
+    private getFallbackHtml(): string {
+        return `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>Templates Panel</title>
+            </head>
+            <body>
+                <h3>Review Templates</h3>
+                <p>Error loading templates panel. Please check the extension configuration.</p>
+            </body>
+            </html>
+        `;
+    }
+
+    private sendTemplates() {
+        // Mock templates data - in a real implementation, this would come from storage
+        const templates = [
+            {
+                id: 'default',
+                title: 'Default Review',
+                description: 'Standard code review with quality and security checks',
+                tags: ['default', 'quality', 'security']
+            },
+            {
+                id: 'performance',
+                title: 'Performance Review',
+                description: 'Focus on performance optimization and efficiency',
+                tags: ['performance', 'optimization', 'efficiency']
+            },
+            {
+                id: 'security',
+                title: 'Security Review',
+                description: 'Comprehensive security vulnerability assessment',
+                tags: ['security', 'vulnerability', 'assessment']
             }
+        ];
 
-            function duplicateTemplate(templateId) {
-                vscode.postMessage({
-                    command: 'duplicateTemplate',
-                    templateId: templateId
-                });
-            }
+        this._view?.webview.postMessage({
+            command: 'updateTemplates',
+            templates: templates
+        });
+    }
 
-            function addNewTemplate() {
-                vscode.postMessage({
-                    command: 'addNewTemplate'
-                });
-            }
+    private useTemplate(templateId: string) {
+        // Handle using a template
+        console.log('Using template:', templateId);
+        vscode.window.showInformationMessage(`Using template: ${templateId}`);
 
-            function updateTemplatesDisplay(templates) {
-                // This would be implemented to dynamically update the templates list
-                // For now, we have static templates
-            }
+        // This would typically load the template and apply it to the current review
+        // For now, just show a notification
+    }
 
-            // Request initial templates data
-            vscode.postMessage({
-                command: 'getTemplates'
-            });
-        </script>
-    </body>
-    </html>`;
-  }
+    private editTemplate(templateId: string) {
+        // Handle editing a template
+        console.log('Editing template:', templateId);
+        vscode.window.showInformationMessage(`Editing template: ${templateId}`);
+    }
+
+    private duplicateTemplate(templateId: string) {
+        // Handle duplicating a template
+        console.log('Duplicating template:', templateId);
+        vscode.window.showInformationMessage(`Duplicating template: ${templateId}`);
+    }
+
+    private addNewTemplate() {
+        // Handle adding a new template
+        console.log('Adding new template');
+        vscode.window.showInformationMessage('Adding new template');
+    }
+
+    public updateTemplates(newTemplates: any[]) {
+        this._view?.webview.postMessage({
+            command: 'updateTemplates',
+            templates: newTemplates
+        });
+    }
 }

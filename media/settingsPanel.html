@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Settings</title>
+    <style>
+      body {
+        font-family: var(--vscode-font-family);
+        color: var(--vscode-foreground);
+        background-color: var(--vscode-editor-background);
+        padding: 10px;
+        margin: 0;
+      }
+      .setting-group {
+        margin-bottom: 20px;
+      }
+      .setting-group h4 {
+        color: var(--vscode-textLink-foreground);
+        margin-bottom: 10px;
+        border-bottom: 1px solid var(--vscode-panel-border);
+        padding-bottom: 5px;
+      }
+      .setting-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--vscode-panel-border);
+      }
+      .setting-label {
+        font-weight: 500;
+      }
+      .setting-description {
+        font-size: 0.9em;
+        color: var(--vscode-descriptionForeground);
+        margin-top: 2px;
+      }
+      .setting-control {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      input[type="text"],
+      input[type="number"],
+      select,
+      textarea {
+        background-color: var(--vscode-input-background);
+        color: var(--vscode-input-foreground);
+        border: 1px solid var(--vscode-input-border);
+        padding: 4px 8px;
+        border-radius: 3px;
+        font-family: var(--vscode-font-family);
+      }
+      input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+      }
+      textarea {
+        min-height: 60px;
+        resize: vertical;
+      }
+      .save-button {
+        background-color: var(--vscode-button-background);
+        color: var(--vscode-button-foreground);
+        border: none;
+        padding: 8px 16px;
+        border-radius: 3px;
+        cursor: pointer;
+        margin-top: 10px;
+      }
+      .save-button:hover {
+        background-color: var(--vscode-button-hoverBackground);
+      }
+      .reset-button {
+        background-color: var(--vscode-button-secondaryBackground);
+        color: var(--vscode-button-secondaryForeground);
+        border: 1px solid var(--vscode-button-secondaryBorder);
+        padding: 8px 16px;
+        border-radius: 3px;
+        cursor: pointer;
+        margin-top: 10px;
+        margin-left: 8px;
+      }
+      .reset-button:hover {
+        background-color: var(--vscode-button-secondaryHoverBackground);
+      }
+      .status-message {
+        padding: 8px;
+        border-radius: 3px;
+        margin-top: 10px;
+        display: none;
+      }
+      .status-message.success {
+        background-color: var(--vscode-notificationsSuccessBackground);
+        color: var(--vscode-notificationsSuccessForeground);
+      }
+      .status-message.error {
+        background-color: var(--vscode-notificationsErrorBackground);
+        color: var(--vscode-notificationsErrorForeground);
+      }
+    </style>
+  </head>
+  <body>
+    <h3>AI Reviewer Settings</h3>
+
+    <div class="setting-group">
+      <h4>API Configuration</h4>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Authentication Type</div>
+          <div class="setting-description">
+            Choose between API token or cookie authentication
+          </div>
+        </div>
+        <div class="setting-control">
+          <select id="authType">
+            <option value="token">API Token</option>
+            <option value="cookie">Cookie</option>
+          </select>
+        </div>
+      </div>
+      <div class="setting-item" id="apiTokenSection">
+        <div>
+          <div class="setting-label">API Token</div>
+          <div class="setting-description">
+            Your API token for authentication
+          </div>
+        </div>
+        <div class="setting-control">
+          <input
+            type="text"
+            id="apiToken"
+            placeholder="sk-..."
+            style="width: 200px"
+          />
+        </div>
+      </div>
+      <div class="setting-item" id="cookieSection" style="display: none">
+        <div>
+          <div class="setting-label">Cookie</div>
+          <div class="setting-description">
+            Cookie string for authentication (e.g., session=abc123;
+            token=xyz789)
+          </div>
+        </div>
+        <div class="setting-control">
+          <input
+            type="text"
+            id="cookie"
+            placeholder="session=abc123; token=xyz789"
+            style="width: 300px"
+          />
+        </div>
+      </div>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">LLM Endpoint</div>
+          <div class="setting-description">
+            API endpoint URL for LLM service
+          </div>
+        </div>
+        <div class="setting-control">
+          <input
+            type="text"
+            id="llmEndpoint"
+            placeholder="http://localhost:11434/api/generate"
+            style="width: 300px"
+          />
+        </div>
+      </div>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Provider Type</div>
+          <div class="setting-description">Type of LLM provider to use</div>
+        </div>
+        <div class="setting-control">
+          <select id="providerType">
+            <option value="ollama">Ollama</option>
+            <option value="openai">OpenAI</option>
+          </select>
+        </div>
+      </div>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Model</div>
+          <div class="setting-description">AI model to use for reviews</div>
+        </div>
+        <div class="setting-control">
+          <input
+            type="text"
+            id="llmModel"
+            placeholder="llama3"
+            style="width: 200px"
+          />
+        </div>
+      </div>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Max Tokens</div>
+          <div class="setting-description">Maximum tokens for AI response</div>
+        </div>
+        <div class="setting-control">
+          <input
+            type="number"
+            id="maxTokens"
+            value="2000"
+            min="100"
+            max="8000"
+          />
+        </div>
+      </div>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Temperature</div>
+          <div class="setting-description">
+            Creativity level (0 = deterministic, 2 = very random)
+          </div>
+        </div>
+        <div class="setting-control">
+          <input
+            type="number"
+            id="temperature"
+            value="0.7"
+            min="0"
+            max="2"
+            step="0.1"
+          />
+        </div>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <h4>Review Settings</h4>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Coding Convention</div>
+          <div class="setting-description">
+            Coding convention rules for AI review (edit in
+            .vscode/ai-reviewer-coding-convention.md)
+          </div>
+        </div>
+        <div class="setting-control">
+          <button type="button" onclick="openConventionFile()">Edit</button>
+        </div>
+      </div>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Base Branch</div>
+          <div class="setting-description">
+            Base branch to compare against when reviewing PR changes (e.g.,
+            main, develop)
+          </div>
+        </div>
+        <div class="setting-control">
+          <input
+            type="text"
+            id="baseBranch"
+            placeholder="main"
+            style="width: 150px"
+          />
+        </div>
+      </div>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Suggestion Display Mode</div>
+          <div class="setting-description">
+            How to display convention suggestions
+          </div>
+        </div>
+        <div class="setting-control">
+          <select id="suggestionDisplayMode">
+            <option value="panel">Panel</option>
+            <option value="inline">Inline</option>
+          </select>
+        </div>
+      </div>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Auto-review on save</div>
+          <div class="setting-description">
+            Automatically review files when saved
+          </div>
+        </div>
+        <div class="setting-control">
+          <input type="checkbox" id="autoReview" />
+        </div>
+      </div>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Review severity threshold</div>
+          <div class="setting-description">Minimum severity level to show</div>
+        </div>
+        <div class="setting-control">
+          <select id="severityThreshold">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+      </div>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Include suggestions</div>
+          <div class="setting-description">
+            Show code suggestions in reviews
+          </div>
+        </div>
+        <div class="setting-control">
+          <input type="checkbox" id="includeSuggestions" checked />
+        </div>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <h4>Prompt Templates</h4>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Code Review Prompt</div>
+          <div class="setting-description">
+            Template for code review prompts (edit in
+            .vscode/ai-reviewer-code-review-prompt.md)
+          </div>
+        </div>
+        <div class="setting-control">
+          <button type="button" onclick="openCodeReviewPromptFile()">
+            Edit
+          </button>
+        </div>
+      </div>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Ghost Text Prompt</div>
+          <div class="setting-description">
+            Template for ghost text suggestions (edit in
+            .vscode/ai-reviewer-ghost-text-prompt.md)
+          </div>
+        </div>
+        <div class="setting-control">
+          <button type="button" onclick="openGhostTextPromptFile()">
+            Edit
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <h4>UI Settings</h4>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Show notifications</div>
+          <div class="setting-description">
+            Display notifications for review results
+          </div>
+        </div>
+        <div class="setting-control">
+          <input type="checkbox" id="showNotifications" checked />
+        </div>
+      </div>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Theme-aware styling</div>
+          <div class="setting-description">Use VS Code theme colors</div>
+        </div>
+        <div class="setting-control">
+          <input type="checkbox" id="themeAware" checked />
+        </div>
+      </div>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Enable Ghost Text</div>
+          <div class="setting-description">
+            Enable AI-powered ghost text suggestions while typing
+          </div>
+        </div>
+        <div class="setting-control">
+          <input type="checkbox" id="ghostTextEnabled" checked />
+        </div>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <h4>Advanced</h4>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Debug mode</div>
+          <div class="setting-description">Enable debug logging</div>
+        </div>
+        <div class="setting-control">
+          <input type="checkbox" id="debugMode" />
+        </div>
+      </div>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Custom prompt template</div>
+          <div class="setting-description">
+            Custom review prompt template (edit in
+            .vscode/ai-reviewer-custom-prompt.md)
+          </div>
+        </div>
+        <div class="setting-control">
+          <button type="button" onclick="openCustomPromptFile()">Edit</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 8px">
+      <button class="save-button" onclick="saveSettings()">
+        Save Settings
+      </button>
+      <button class="reset-button" onclick="resetSettings()">
+        Reset to Defaults
+      </button>
+    </div>
+
+    <div id="statusMessage" class="status-message"></div>
+
+    <script>
+      const vscode = acquireVsCodeApi();
+
+      // Listen for messages from the extension
+      window.addEventListener("message", (event) => {
+        const message = event.data;
+        switch (message.type) {
+          case "settingsLoaded":
+            updateSettingsDisplay(message.settings);
+            break;
+          case "settingUpdated":
+            showStatus("Setting updated successfully!", "success");
+            break;
+          case "settingsReset":
+            updateSettingsDisplay(message.settings);
+            showStatus("Settings reset to defaults!", "success");
+            break;
+          case "validationResult":
+            if (message.isValid) {
+              showStatus("All settings are valid!", "success");
+            } else {
+              showStatus(
+                "Configuration errors: " + message.errors.join(", "),
+                "error"
+              );
+            }
+            break;
+          case "error":
+            showStatus(message.message, "error");
+            break;
+        }
+      });
+
+      function updateSettingsDisplay(settings) {
+        if (!settings) return;
+        document.getElementById("authType").value =
+          settings.authType || "token";
+        document.getElementById("apiToken").value = settings.apiToken || "";
+        document.getElementById("cookie").value = settings.cookie || "";
+        document.getElementById("llmEndpoint").value =
+          settings.llmEndpoint || "http://localhost:11434/api/generate";
+        document.getElementById("providerType").value =
+          settings.providerType || "ollama";
+        document.getElementById("llmModel").value =
+          settings.llmModel || "llama3";
+        document.getElementById("maxTokens").value = settings.maxTokens || 2000;
+        document.getElementById("temperature").value =
+          settings.temperature || 0.7;
+        document.getElementById("baseBranch").value =
+          settings.baseBranch || "main";
+        document.getElementById("suggestionDisplayMode").value =
+          settings.suggestionDisplayMode || "panel";
+        document.getElementById("autoReview").checked =
+          settings.autoReview || false;
+        document.getElementById("severityThreshold").value =
+          settings.severityThreshold || "medium";
+        document.getElementById("includeSuggestions").checked =
+          settings.includeSuggestions !== false;
+        document.getElementById("showNotifications").checked =
+          settings.showNotifications !== false;
+        document.getElementById("themeAware").checked =
+          settings.themeAware !== false;
+        document.getElementById("ghostTextEnabled").checked =
+          settings.ghostTextEnabled !== false;
+        document.getElementById("debugMode").checked =
+          settings.debugMode || false;
+
+        // Show/hide API token and cookie sections based on authentication type
+        const apiTokenSection = document.getElementById("apiTokenSection");
+        const cookieSection = document.getElementById("cookieSection");
+        apiTokenSection.style.display =
+          settings.authType === "token" ? "flex" : "none";
+        cookieSection.style.display =
+          settings.authType === "cookie" ? "flex" : "none";
+      }
+
+      function saveSettings() {
+        const settings = {
+          authType: document.getElementById("authType").value,
+          apiToken: document.getElementById("apiToken").value,
+          cookie: document.getElementById("cookie").value,
+          llmEndpoint: document.getElementById("llmEndpoint").value,
+          providerType: document.getElementById("providerType").value,
+          llmModel: document.getElementById("llmModel").value,
+          maxTokens: parseInt(document.getElementById("maxTokens").value),
+          temperature: parseFloat(document.getElementById("temperature").value),
+
+          baseBranch: document.getElementById("baseBranch").value,
+          suggestionDisplayMode: document.getElementById(
+            "suggestionDisplayMode"
+          ).value,
+          autoReview: document.getElementById("autoReview").checked,
+          severityThreshold: document.getElementById("severityThreshold").value,
+          includeSuggestions:
+            document.getElementById("includeSuggestions").checked,
+          showNotifications:
+            document.getElementById("showNotifications").checked,
+          themeAware: document.getElementById("themeAware").checked,
+          ghostTextEnabled: document.getElementById("ghostTextEnabled").checked,
+          debugMode: document.getElementById("debugMode").checked,
+        };
+
+        vscode.postMessage({
+          type: "updateSetting",
+          key: null,
+          value: settings,
+        });
+      }
+
+      function resetSettings() {
+        if (
+          confirm("Are you sure you want to reset all settings to defaults?")
+        ) {
+          vscode.postMessage({
+            type: "resetToDefaults",
+          });
+        }
+      }
+
+      function showStatus(message, type) {
+        const statusElement = document.getElementById("statusMessage");
+        statusElement.textContent = message;
+        statusElement.className = `status-message ${type}`;
+        statusElement.style.display = "block";
+
+        setTimeout(() => {
+          statusElement.style.display = "none";
+        }, 3000);
+      }
+
+      // Request initial settings data
+      vscode.postMessage({
+        type: "getSettings",
+      });
+
+      // Add event listener for authentication type change
+      document
+        .getElementById("authType")
+        .addEventListener("change", function () {
+          const authType = this.value;
+          const apiTokenSection = document.getElementById("apiTokenSection");
+          const cookieSection = document.getElementById("cookieSection");
+
+          if (authType === "token") {
+            apiTokenSection.style.display = "flex";
+            cookieSection.style.display = "none";
+          } else {
+            apiTokenSection.style.display = "none";
+            cookieSection.style.display = "flex";
+          }
+        });
+
+      function openConventionFile() {
+        vscode.postMessage({ type: "openConventionFile" });
+      }
+      function openCustomPromptFile() {
+        vscode.postMessage({ type: "openCustomPromptFile" });
+      }
+      function openCodeReviewPromptFile() {
+        vscode.postMessage({ type: "openCodeReviewPromptFile" });
+      }
+      function openGhostTextPromptFile() {
+        vscode.postMessage({ type: "openGhostTextPromptFile" });
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Reviewer Chat</title>
+    <style>
+      body {
+        padding: 10px;
+        font-family: var(--vscode-font-family);
+        color: var(--vscode-foreground);
+        background-color: var(--vscode-editor-background);
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        margin: 0;
+      }
+
+      .chat-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+
+      .code-chip {
+        background-color: var(--vscode-badge-background);
+        color: var(--vscode-badge-foreground);
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        margin-bottom: 10px;
+        display: none;
+        word-break: break-all;
+      }
+
+      .messages-container {
+        flex: 1;
+        overflow-y: auto;
+        margin-bottom: 10px;
+        padding: 10px;
+        border: 1px solid var(--vscode-input-border);
+        border-radius: 4px;
+        background-color: var(--vscode-input-background);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .message {
+        margin-bottom: 15px;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .message.user {
+        align-items: flex-end;
+      }
+
+      .message.ai {
+        align-items: flex-start;
+      }
+
+      .message-bubble {
+        max-width: 80%;
+        padding: 8px 12px;
+        border-radius: 12px;
+        word-wrap: break-word;
+
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      .message.user .message-bubble {
+        background-color: var(--vscode-button-background);
+        color: var(--vscode-button-foreground);
+        border-bottom-right-radius: 4px;
+      }
+
+      .message.ai .message-bubble {
+        background-color: var(--vscode-editor-background);
+        color: var(--vscode-foreground);
+        border: 1px solid var(--vscode-input-border);
+        border-bottom-left-radius: 4px;
+      }
+
+      /* Markdown styling */
+      .message.ai .message-bubble h1,
+      .message.ai .message-bubble h2,
+      .message.ai .message-bubble h3,
+      .message.ai .message-bubble h4,
+      .message.ai .message-bubble h5,
+      .message.ai .message-bubble h6 {
+        margin: 8px 0 4px 0;
+        color: var(--vscode-editor-foreground);
+      }
+
+      .message.ai .message-bubble h1 {
+        font-size: 18px;
+      }
+      .message.ai .message-bubble h2 {
+        font-size: 16px;
+      }
+      .message.ai .message-bubble h3 {
+        font-size: 14px;
+      }
+
+      .message.ai .message-bubble p {
+        margin: 4px 0;
+        line-height: 1.4;
+      }
+
+      .message.ai .message-bubble ul,
+      .message.ai .message-bubble ol {
+        margin: 4px 0;
+        padding-left: 20px;
+      }
+
+      .message.ai .message-bubble li {
+        margin: 2px 0;
+      }
+
+      .message.ai .message-bubble code {
+        background-color: var(--vscode-textCodeBlock-background);
+        color: var(--vscode-textCodeBlock-foreground);
+        padding: 2px 4px;
+        border-radius: 3px;
+        font-family: var(--vscode-editor-font-family);
+        font-size: 12px;
+      }
+
+      .message.ai .message-bubble pre {
+        background-color: var(--vscode-textCodeBlock-background);
+        border: 1px solid var(--vscode-input-border);
+        border-radius: 4px;
+        padding: 8px;
+        margin: 8px 0;
+        overflow-x: auto;
+      }
+
+      .message.ai .message-bubble pre code {
+        background: none;
+        padding: 0;
+        border-radius: 0;
+      }
+
+      .message.ai .message-bubble blockquote {
+        border-left: 3px solid var(--vscode-input-border);
+        margin: 8px 0;
+        padding-left: 12px;
+        color: var(--vscode-descriptionForeground);
+      }
+
+      .message.ai .message-bubble strong {
+        font-weight: bold;
+      }
+
+      .message.ai .message-bubble em {
+        font-style: italic;
+      }
+
+      .message.ai .message-bubble a {
+        color: var(--vscode-textLink-foreground);
+        text-decoration: none;
+      }
+
+      .message.ai .message-bubble a:hover {
+        text-decoration: underline;
+      }
+
+      .message.ai .message-bubble table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 8px 0;
+      }
+
+      .message.ai .message-bubble th,
+      .message.ai .message-bubble td {
+        border: 1px solid var(--vscode-input-border);
+        padding: 4px 8px;
+        text-align: left;
+      }
+
+      .message.ai .message-bubble th {
+        background-color: var(--vscode-editor-background);
+        font-weight: bold;
+      }
+
+      .message-time {
+        font-size: 10px;
+        color: var(--vscode-descriptionForeground);
+        margin-top: 4px;
+        opacity: 0.7;
+      }
+
+      .message.user .message-time {
+        text-align: right;
+      }
+
+      .message.ai .message-time {
+        text-align: left;
+      }
+
+      .input-container {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .message-input {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid var(--vscode-input-border);
+        background-color: var(--vscode-input-background);
+        color: var(--vscode-input-foreground);
+        border-radius: 4px;
+        box-sizing: border-box;
+        resize: vertical;
+        min-height: 60px;
+        font-family: var(--vscode-font-family);
+      }
+
+      .send-button {
+        background-color: var(--vscode-button-background);
+        color: var(--vscode-button-foreground);
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        align-self: flex-end;
+      }
+
+      .send-button:hover {
+        background-color: var(--vscode-button-hoverBackground);
+      }
+
+      .send-button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .cancel-button {
+        background-color: var(--vscode-button-secondaryBackground);
+        color: var(--vscode-button-secondaryForeground);
+        border: 1px solid var(--vscode-button-secondaryBorder);
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        align-self: flex-end;
+        display: none;
+      }
+
+      .cancel-button:hover {
+        background-color: var(--vscode-button-secondaryHoverBackground);
+      }
+
+      .loading {
+        opacity: 0.6;
+      }
+
+      .typing-indicator {
+        display: none;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 12px;
+        background-color: var(--vscode-editor-background);
+        border: 1px solid var(--vscode-input-border);
+        border-radius: 12px;
+        border-bottom-left-radius: 4px;
+        max-width: 80%;
+        margin-bottom: 15px;
+      }
+
+      .typing-dots {
+        display: flex;
+        gap: 2px;
+      }
+
+      .typing-dot {
+        width: 6px;
+        height: 6px;
+        background-color: var(--vscode-foreground);
+        border-radius: 50%;
+        animation: typing 1.4s infinite ease-in-out;
+      }
+
+      .typing-dot:nth-child(1) {
+        animation-delay: -0.32s;
+      }
+      .typing-dot:nth-child(2) {
+        animation-delay: -0.16s;
+      }
+
+      @keyframes typing {
+        0%,
+        80%,
+        100% {
+          transform: scale(0.8);
+          opacity: 0.5;
+        }
+        40% {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+
+      /* Review Results Styles */
+      .review-results {
+        margin: 16px 0;
+        background: linear-gradient(
+          135deg,
+          var(--vscode-editor-background) 0%,
+          var(--vscode-list-hoverBackground) 100%
+        );
+        border-radius: 12px;
+        border: 1px solid var(--vscode-input-border);
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        animation: slideIn 0.3s ease-out;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .review-results h3 {
+        color: var(--vscode-textLink-foreground);
+        margin: 0;
+        padding: 20px 20px 16px 20px;
+        font-size: 18px;
+        font-weight: 600;
+        background: linear-gradient(
+          135deg,
+          var(--vscode-textLink-foreground) 0%,
+          var(--vscode-textLink-activeForeground) 100%
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        border-bottom: 1px solid var(--vscode-input-border);
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+      }
+
+      .review-results h4 {
+        color: var(--vscode-foreground);
+        margin: 0 0 12px 0;
+        font-size: 15px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .review-results h4::before {
+        content: "";
+        width: 4px;
+        height: 16px;
+        background: var(--vscode-textLink-foreground);
+        border-radius: 2px;
+      }
+
+      .violations-section {
+        padding: 0 20px 20px 20px;
+      }
+
+      .violation-item {
+        border: 1px solid var(--vscode-input-border);
+        border-radius: 10px;
+        margin-bottom: 16px;
+        background-color: var(--vscode-editor-background);
+        overflow: hidden;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        min-width: 0; /* Prevent flex items from overflowing */
+      }
+
+      .violation-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        border-color: var(--vscode-textLink-foreground);
+      }
+
+      .violation-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px;
+        background: linear-gradient(
+          135deg,
+          var(--vscode-list-hoverBackground) 0%,
+          var(--vscode-list-activeSelectionBackground) 100%
+        );
+        border-bottom: 1px solid var(--vscode-input-border);
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .line-number {
+        font-weight: 600;
+        color: var(--vscode-textLink-foreground);
+        font-family: var(--vscode-editor-font-family);
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+
+      .line-number::before {
+        content: "📍";
+        font-size: 12px;
+      }
+
+      .severity {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        flex-shrink: 0;
+        white-space: nowrap;
+      }
+
+      .severity.high {
+        background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
+        color: white;
+      }
+
+      .severity.medium {
+        background: linear-gradient(135deg, #ffa502 0%, #ff9500 100%);
+        color: white;
+      }
+
+      .severity.low {
+        background: linear-gradient(135deg, #2ed573 0%, #1e90ff 100%);
+        color: white;
+      }
+
+      .violation-message {
+        padding: 12px 16px;
+        color: var(--vscode-foreground);
+        border-bottom: 1px solid var(--vscode-input-border);
+        font-size: 14px;
+        line-height: 1.5;
+        background-color: var(--vscode-editor-background);
+      }
+
+      .code-block {
+        padding: 16px;
+        background-color: var(--vscode-textCodeBlock-background);
+      }
+
+      .code-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        font-size: 12px;
+        color: var(--vscode-descriptionForeground);
+        font-weight: 600;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .code-header span {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+
+      .code-header span::before {
+        content: "💻";
+        font-size: 12px;
+      }
+
+      /* Responsive design for smaller screens */
+      @media (max-width: 600px) {
+        .code-header {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 8px;
+        }
+
+        .code-header span {
+          order: 1;
+        }
+
+        .apply-button {
+          order: 2;
+          align-self: flex-end;
+        }
+      }
+
+      .apply-button {
+        background: linear-gradient(
+          135deg,
+          var(--vscode-button-background) 0%,
+          var(--vscode-button-hoverBackground) 100%
+        );
+        color: var(--vscode-button-foreground);
+        border: none;
+        padding: 6px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        flex-shrink: 0;
+        white-space: nowrap;
+      }
+
+      .apply-button:hover {
+        background: linear-gradient(
+          135deg,
+          var(--vscode-button-hoverBackground) 0%,
+          var(--vscode-button-background) 100%
+        );
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      }
+
+      .apply-button:active {
+        transform: translateY(0);
+      }
+
+      .code-block pre {
+        background-color: var(--vscode-textCodeBlock-background);
+        border: 1px solid var(--vscode-input-border);
+        border-radius: 6px;
+        padding: 10px;
+        margin: 4px 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        font-family: var(--vscode-editor-font-family);
+        font-size: 13px;
+        line-height: 1.2;
+        white-space: pre;
+        word-wrap: normal;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+
+      .code-block pre code {
+        color: var(--vscode-textCodeBlock-foreground);
+        display: block;
+        min-width: 100%;
+        white-space: pre;
+        word-wrap: normal;
+        line-height: 1.2;
+        margin: 0;
+        padding: 0;
+      }
+
+      .code-block pre > * {
+        margin: 0;
+        padding: 0;
+      }
+
+      .summary-section {
+        margin: 20px;
+        padding: 16px;
+        background: linear-gradient(
+          135deg,
+          var(--vscode-list-hoverBackground) 0%,
+          var(--vscode-editor-background) 100%
+        );
+        border-radius: 10px;
+        border-left: 4px solid var(--vscode-textLink-foreground);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .summary-section h4 {
+        margin: 0 0 12px 0;
+        color: var(--vscode-textLink-foreground);
+        font-size: 16px;
+        font-weight: 600;
+      }
+
+      .summary-section h4::before {
+        content: "📊";
+        margin-right: 8px;
+      }
+
+      .summary-section p {
+        margin: 0;
+        line-height: 1.6;
+        color: var(--vscode-foreground);
+        font-size: 14px;
+      }
+
+      .success-section {
+        margin: 20px;
+        padding: 20px;
+        background: linear-gradient(135deg, #2ed573 0%, #1e90ff 100%);
+        color: white;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 4px 12px rgba(46, 213, 115, 0.3);
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.02);
+        }
+      }
+
+      .success-section h4 {
+        margin: 0 0 12px 0;
+        color: white;
+        font-size: 18px;
+        font-weight: 600;
+      }
+
+      .success-section h4::before {
+        content: "🎉";
+        margin-right: 8px;
+        font-size: 20px;
+      }
+
+      .success-section p {
+        margin: 0;
+        opacity: 0.95;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      /* Stats section for violations count */
+      .stats-section {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 16px;
+        padding: 0 20px;
+      }
+
+      .stat-item {
+        flex: 1;
+        padding: 12px;
+        border-radius: 8px;
+        text-align: center;
+        font-weight: 600;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .stat-total {
+        background: linear-gradient(
+          135deg,
+          var(--vscode-textLink-foreground) 0%,
+          var(--vscode-textLink-activeForeground) 100%
+        );
+        color: white;
+      }
+
+      .stat-high {
+        background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
+        color: white;
+      }
+
+      .stat-medium {
+        background: linear-gradient(135deg, #ffa502 0%, #ff9500 100%);
+        color: white;
+      }
+
+      .stat-low {
+        background: linear-gradient(135deg, #2ed573 0%, #1e90ff 100%);
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="chat-container">
+      <div id="codeChip" class="code-chip"></div>
+
+      <div
+        class="code-controls"
+        style="display: flex; gap: 8px; margin-bottom: 10px"
+      >
+        <button
+          id="addCodeButton"
+          class="send-button"
+          style="font-size: 11px; padding: 4px 8px"
+          onclick="addCodeSelection()"
+        >
+          Add Selection (Ctrl+Shift+A)
+        </button>
+        <button
+          id="clearCodeButton"
+          class="send-button"
+          style="font-size: 11px; padding: 4px 8px; display: none"
+          onclick="clearCodeSelections()"
+        >
+          Clear All (Ctrl+Shift+C)
+        </button>
+      </div>
+
+      <div id="messagesContainer" class="messages-container">
+        <div class="message ai">
+          <div class="message-bubble">
+            Hello! I'm your AI coding assistant. Select some code in your editor
+            and press <strong>Ctrl+Shift+A</strong> to add it to your question.
+            You can add multiple selections!
+          </div>
+          <div class="message-time">Just now</div>
+        </div>
+      </div>
+
+      <div id="typingIndicator" class="typing-indicator">
+        <div class="typing-dots">
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+        </div>
+        <span>AI is thinking...</span>
+      </div>
+
+      <div class="input-container">
+        <textarea
+          id="messageInput"
+          class="message-input"
+          placeholder="Type your message here..."
+        ></textarea>
+        <div style="display: flex; gap: 8px; justify-content: flex-end">
+          <button id="cancelButton" class="cancel-button">Cancel</button>
+          <button id="sendButton" class="send-button">Send Message</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const vscode = acquireVsCodeApi();
+      let codeSelections = [];
+      let accumulatedText = "";
+
+      // Listen for messages from the extension
+      window.addEventListener("message", (event) => {
+        const message = event.data;
+
+        switch (message.type) {
+          case "selectedCode":
+            if (message.selectedCode) {
+              document.getElementById(
+                "codeChip"
+              ).textContent = `${message.fileName} (lines ${message.lineStart}-${message.lineEnd})`;
+              document.getElementById("codeChip").style.display = "block";
+            } else {
+              document.getElementById("codeChip").style.display = "none";
+            }
+            break;
+
+          case "codeSelectionAdded":
+            codeSelections.push(message.selection);
+            updateCodeChip();
+            break;
+
+          case "codeSelectionsCleared":
+            codeSelections = [];
+            updateCodeChip();
+            break;
+
+          case "startStreaming":
+            showTypingIndicator();
+            addMessage("", false, true);
+            break;
+
+          case "streamChunk":
+            const streamingBubble = document.getElementById(
+              "currentStreamingBubble"
+            );
+            if (streamingBubble) {
+              if (message.isHtml) {
+                streamingBubble.innerHTML = message.chunk;
+              } else {
+                accumulatedText += message.chunk;
+                const htmlContent = marked.parse
+                  ? marked.parse(accumulatedText)
+                  : marked(accumulatedText);
+                streamingBubble.innerHTML = htmlContent;
+              }
+              document.getElementById("messagesContainer").scrollTop =
+                document.getElementById("messagesContainer").scrollHeight;
+            }
+            if (!message.isHtml) setTimeout(addApplyButtonsToCodeBlocks, 0);
+            break;
+
+          case "streamComplete":
+            hideTypingIndicator();
+            const completedStreamingMessage = document.getElementById(
+              "currentStreamingMessage"
+            );
+            if (completedStreamingMessage) {
+              completedStreamingMessage.removeAttribute("id");
+              const completedBubble = completedStreamingMessage.querySelector(
+                "#currentStreamingBubble"
+              );
+              if (completedBubble) {
+                completedBubble.removeAttribute("id");
+              }
+            }
+            document.getElementById("sendButton").disabled = false;
+            document.getElementById("sendButton").textContent = "Send Message";
+            document.getElementById("cancelButton").style.display = "none";
+            break;
+
+          case "streamCancelled":
+            hideTypingIndicator();
+            const cancelledStreamingMessage = document.getElementById(
+              "currentStreamingMessage"
+            );
+            if (cancelledStreamingMessage) {
+              cancelledStreamingMessage.remove();
+            }
+            addMessage(
+              "<strong>Cancelled:</strong> The AI request was cancelled. Please try again.",
+              false
+            );
+            document.getElementById("sendButton").disabled = false;
+            document.getElementById("sendButton").textContent = "Send Message";
+            document.getElementById("cancelButton").style.display = "none";
+            break;
+
+          case "error":
+            hideTypingIndicator();
+            const errorStreamingMessage = document.getElementById(
+              "currentStreamingMessage"
+            );
+            if (errorStreamingMessage) {
+              errorStreamingMessage.remove();
+            }
+            addMessage(`<strong>Error:</strong> ${message.content}`, false);
+            document.getElementById("sendButton").disabled = false;
+            document.getElementById("sendButton").textContent = "Send Message";
+            break;
+
+          case "applyError":
+            hideTypingIndicator();
+            const applyErrorStreamingMessage = document.getElementById(
+              "currentStreamingMessage"
+            );
+            if (applyErrorStreamingMessage) {
+              applyErrorStreamingMessage.remove();
+            }
+            addMessage(`<strong>Error:</strong> ${message.message}`, false);
+            document.getElementById("sendButton").disabled = false;
+            document.getElementById("sendButton").textContent = "Send Message";
+            break;
+
+          case "applySuccess":
+            hideTypingIndicator();
+            const applySuccessStreamingMessage = document.getElementById(
+              "currentStreamingMessage"
+            );
+            if (applySuccessStreamingMessage) {
+              applySuccessStreamingMessage.remove();
+            }
+            addMessage(
+              `<strong>Success:</strong> Applied change to ${message.fileName} line ${message.lineNumber}`,
+              false
+            );
+            document.getElementById("sendButton").disabled = false;
+            document.getElementById("sendButton").textContent = "Send Message";
+            break;
+
+          case "reviewResults":
+            hideTypingIndicator();
+            const reviewResultsStreamingMessage = document.getElementById(
+              "currentStreamingMessage"
+            );
+            if (reviewResultsStreamingMessage) {
+              reviewResultsStreamingMessage.remove();
+            }
+
+            try {
+              const { reviewData, fileName } = message;
+              console.log(reviewData);
+              let reviewHtml = `<div class="review-results">
+                            <h3>🔍 Review Results for ${fileName}</h3>`;
+
+              if (reviewData.violations && reviewData.violations.length > 0) {
+                // Calculate stats
+                const stats = {
+                  total: reviewData.violations.length,
+                  high: reviewData.violations.filter(
+                    (v) => v.severity === "high"
+                  ).length,
+                  medium: reviewData.violations.filter(
+                    (v) => v.severity === "medium"
+                  ).length,
+                  low: reviewData.violations.filter((v) => v.severity === "low")
+                    .length,
+                };
+
+                // Add stats section
+                reviewHtml += `<div class="stats-section">
+                                <div class="stat-item stat-total">${stats.total} Total</div>
+                                <div class="stat-item stat-high">${stats.high} High</div>
+                                <div class="stat-item stat-medium">${stats.medium} Medium</div>
+                                <div class="stat-item stat-low">${stats.low} Low</div>
+                            </div>`;
+
+                reviewHtml += `<div class="violations-section">
+                                <h4>Issues Found</h4>`;
+
+                reviewData.violations.forEach((violation, index) => {
+                  reviewHtml += `<div class="violation-item">
+                                    <div class="violation-header">
+                                        <span class="line-number">Line ${
+                                          violation.line
+                                        }</span>
+                                        <span class="severity ${
+                                          violation.severity
+                                        }">${violation.severity}</span>
+                                    </div>
+                                    <div class="violation-message">${
+                                      violation.message
+                                    }</div>
+                                    <div class="code-block">
+                                        <div class="code-header">
+                                            <span>Current Code</span>
+                                        </div>
+                                        <pre><code>${escapeHtml(
+                                          violation.originalCode || ""
+                                        )}</code></pre>
+                                        <div class="code-header">
+                                            <span>Suggested Fix</span>
+                                            <button class="apply-button" onclick="applyCodeChange('${fileName}', ${
+                    violation.line
+                  }, '${escapeHtml(violation.suggestion)}', '${escapeHtml(
+                    violation.originalCode || ""
+                  )}')">
+                                                ✨ Apply Fix
+                                            </button>
+                                        </div>
+                                        <pre><code>${escapeHtml(
+                                          violation.suggestion
+                                        )}</code></pre>
+                                    </div>
+                                </div>`;
+                });
+
+                reviewHtml += `</div>`;
+              } else {
+                reviewHtml += `<div class="success-section">
+                                <h4>🎉 No Issues Found!</h4>
+                                <p>Excellent work! Your code follows all the defined conventions and best practices.</p>
+                            </div>`;
+              }
+
+              if (reviewData.summary) {
+                reviewHtml += `<div class="summary-section">
+                                <h4>Summary</h4>
+                                <p>${reviewData.summary}</p>
+                            </div>`;
+              }
+
+              reviewHtml += `</div>`;
+
+              addMessage(reviewHtml, false);
+            } catch (error) {
+              addMessage(
+                `<strong>Error:</strong> ${
+                  error instanceof Error ? error.message : "Unknown error"
+                }`,
+                false
+              );
+            }
+
+            document.getElementById("sendButton").disabled = false;
+            document.getElementById("sendButton").textContent = "Send Message";
+            break;
+        }
+      });
+
+      // Handle send button click
+      document
+        .getElementById("sendButton")
+        .addEventListener("click", sendMessage);
+
+      // Handle cancel button click
+      document
+        .getElementById("cancelButton")
+        .addEventListener("click", cancelMessage);
+
+      // Handle enter key press
+      document
+        .getElementById("messageInput")
+        .addEventListener("keypress", function (e) {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+          }
+        });
+
+      // Handle keyboard shortcuts
+      document.addEventListener("keydown", function (e) {
+        // Ctrl+Shift+A to add code selection
+        if (e.ctrlKey && e.shiftKey && e.key === "A") {
+          e.preventDefault();
+          addCodeSelection();
+        }
+        // Ctrl+Shift+C to clear code selections
+        if (e.ctrlKey && e.shiftKey && e.key === "C") {
+          e.preventDefault();
+          clearCodeSelections();
+        }
+      });
+
+      function sendMessage() {
+        const messageInput = document.getElementById("messageInput");
+        const message = messageInput.value.trim();
+
+        if (!message) return;
+
+        // Add user message to chat
+        addMessage(message, true);
+
+        // Clear input
+        messageInput.value = "";
+
+        // Disable send button and show typing indicator
+        const sendButton = document.getElementById("sendButton");
+        const cancelButton = document.getElementById("cancelButton");
+        sendButton.disabled = true;
+        sendButton.textContent = "Sending...";
+        cancelButton.style.display = "block";
+        showTypingIndicator();
+
+        // Send message to extension with code selections
+        vscode.postMessage({
+          type: "sendMessage",
+          message: message,
+          codeSelections: codeSelections,
+        });
+      }
+
+      function cancelMessage() {
+        // Send cancellation message to extension
+        vscode.postMessage({
+          type: "cancelStreaming",
+        });
+
+        // Reset UI
+        const sendButton = document.getElementById("sendButton");
+        const cancelButton = document.getElementById("cancelButton");
+        sendButton.disabled = false;
+        sendButton.textContent = "Send Message";
+        cancelButton.style.display = "none";
+        hideTypingIndicator();
+      }
+
+      function addCodeSelection() {
+        vscode.postMessage({
+          type: "addCodeSelection",
+        });
+      }
+
+      function clearCodeSelections() {
+        vscode.postMessage({
+          type: "clearCodeSelections",
+        });
+      }
+
+      function updateCodeChip() {
+        const codeChip = document.getElementById("codeChip");
+        const clearButton = document.getElementById("clearCodeButton");
+
+        if (codeSelections.length > 0) {
+          const totalLines = codeSelections.reduce(
+            (sum, selection) =>
+              sum + (selection.lineEnd - selection.lineStart + 1),
+            0
+          );
+          codeChip.textContent = `${codeSelections.length} selection(s) - ${totalLines} total lines`;
+          codeChip.style.display = "block";
+          clearButton.style.display = "block";
+        } else {
+          codeChip.style.display = "none";
+          clearButton.style.display = "none";
+        }
+      }
+
+      function addMessage(content, isUser = false, isStreaming = false) {
+        const messagesContainer = document.getElementById("messagesContainer");
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${isUser ? "user" : "ai"}`;
+
+        if (isStreaming) {
+          messageDiv.id = "currentStreamingMessage";
+        }
+
+        const bubble = document.createElement("div");
+        bubble.className = "message-bubble";
+
+        if (isStreaming) {
+          bubble.id = "currentStreamingBubble";
+        }
+
+        if (isUser) {
+          bubble.textContent = content;
+        } else {
+          bubble.innerHTML = content;
+        }
+
+        messageDiv.appendChild(bubble);
+
+        const timeDiv = document.createElement("div");
+        timeDiv.className = "message-time";
+        timeDiv.textContent = new Date().toLocaleTimeString();
+        messageDiv.appendChild(timeDiv);
+
+        // Use insertAdjacentElement to ensure proper ordering
+        messagesContainer.insertAdjacentElement("beforeend", messageDiv);
+
+        // Scroll to bottom
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+
+      function showTypingIndicator() {
+        document.getElementById("typingIndicator").style.display = "flex";
+      }
+
+      function hideTypingIndicator() {
+        document.getElementById("typingIndicator").style.display = "none";
+      }
+
+      // Function to add apply buttons to code blocks in AI responses
+      function addApplyButtonsToCodeBlocks() {
+        const codeBlocks = document.querySelectorAll("pre code");
+        codeBlocks.forEach((codeBlock, index) => {
+          // Check if buttons already exist
+          if (
+            codeBlock.parentElement.querySelector(".apply-code-btn") ||
+            codeBlock.parentElement.querySelector(".copy-code-btn")
+          ) {
+            return;
+          }
+
+          // Create button container
+          const buttonContainer = document.createElement("div");
+          buttonContainer.className = "code-block-buttons";
+          buttonContainer.style.cssText =
+            "display: flex; gap: 4px; margin-top: 8px;";
+
+          // Create Apply Code button
+          const applyButton = document.createElement("button");
+          applyButton.className = "apply-code-btn";
+          applyButton.textContent = "Apply Code";
+          applyButton.style.cssText =
+            "background-color: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px;";
+          applyButton.onclick = function () {
+            const code = codeBlock.textContent;
+            vscode.postMessage({
+              type: "applyCode",
+              code: code,
+            });
+          };
+
+          // Create Copy Code button
+          const copyButton = document.createElement("button");
+          copyButton.className = "copy-code-btn";
+          copyButton.textContent = "Copy";
+          copyButton.style.cssText =
+            "background-color: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); border: 1px solid var(--vscode-button-secondaryBorder); padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px;";
+          copyButton.onclick = function () {
+            const code = codeBlock.textContent;
+            navigator.clipboard
+              .writeText(code)
+              .then(() => {
+                // Show brief feedback
+                const originalText = copyButton.textContent;
+                copyButton.textContent = "Copied!";
+                copyButton.style.backgroundColor =
+                  "var(--vscode-notificationsSuccessIcon-foreground)";
+                copyButton.style.color =
+                  "var(--vscode-notificationsSuccessBackground)";
+                setTimeout(() => {
+                  copyButton.textContent = originalText;
+                  copyButton.style.backgroundColor =
+                    "var(--vscode-button-secondaryBackground)";
+                  copyButton.style.color =
+                    "var(--vscode-button-secondaryForeground)";
+                }, 1000);
+              })
+              .catch((err) => {
+                console.error("Failed to copy code:", err);
+                // Fallback: show error message
+                const originalText = copyButton.textContent;
+                copyButton.textContent = "Error";
+                copyButton.style.backgroundColor =
+                  "var(--vscode-errorForeground)";
+                copyButton.style.color = "var(--vscode-errorBackground)";
+                setTimeout(() => {
+                  copyButton.textContent = originalText;
+                  copyButton.style.backgroundColor =
+                    "var(--vscode-button-secondaryBackground)";
+                  copyButton.style.color =
+                    "var(--vscode-button-secondaryForeground)";
+                }, 1000);
+              });
+          };
+
+          // Add buttons to container
+          buttonContainer.appendChild(applyButton);
+          buttonContainer.appendChild(copyButton);
+
+          // Insert button container after the code block
+          codeBlock.parentElement.appendChild(buttonContainer);
+        });
+      }
+
+      // Function to apply code changes from review results
+      function applyCodeChange(fileName, lineNumber, newCode, originalCode) {
+        // Send message to extension to apply the code change
+        vscode.postMessage({
+          type: "applyCodeChange",
+          fileName: fileName,
+          lineNumber: parseInt(lineNumber),
+          newCode: newCode,
+          originalCode: originalCode,
+        });
+      }
+
+      // Function to escape HTML characters
+      function escapeHtml(text) {
+        if (!text) return "";
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
+      }
+    </script>
+  </body>
+</html>
