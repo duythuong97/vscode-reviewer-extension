@@ -136,37 +136,36 @@
           />
         </div>
       </div>
-      <div class="setting-item" id="cookieSection" style="display: none">
-        <div>
+      <div class="setting-item" id="cookieSection">
+        <div style="flex: 1">
           <div class="setting-label">Cookie</div>
           <div class="setting-description">
             Cookie string for authentication (e.g., session=abc123;
             token=xyz789)
           </div>
-        </div>
-        <div class="setting-control">
-          <input
-            type="text"
-            id="cookie"
-            placeholder="session=abc123; token=xyz789"
-            style="width: 300px"
-          />
+          <div class="setting-control" style="margin-top: 10px">
+            <textarea
+              id="cookie"
+              style="width: 95%"
+              placeholder="session=abc123; token=xyz789"
+            ></textarea>
+          </div>
         </div>
       </div>
       <div class="setting-item">
-        <div>
+        <div style="flex: 1">
           <div class="setting-label">LLM Endpoint</div>
           <div class="setting-description">
             API endpoint URL for LLM service
           </div>
-        </div>
-        <div class="setting-control">
-          <input
-            type="text"
-            id="llmEndpoint"
-            placeholder="http://localhost:11434/api/generate"
-            style="width: 300px"
-          />
+          <div class="setting-control" style="margin-top: 10px">
+            <input
+              type="text"
+              id="llmEndpoint"
+              style="width: 95%"
+              placeholder="http://localhost:11434/api/generate"
+            />
+          </div>
         </div>
       </div>
       <div class="setting-item">
@@ -232,18 +231,7 @@
 
     <div class="setting-group">
       <h4>Review Settings</h4>
-      <div class="setting-item">
-        <div>
-          <div class="setting-label">Coding Convention</div>
-          <div class="setting-description">
-            Coding convention rules for AI review (edit in
-            .vscode/ai-reviewer-coding-convention.md)
-          </div>
-        </div>
-        <div class="setting-control">
-          <button type="button" onclick="openConventionFile()">Edit</button>
-        </div>
-      </div>
+
       <div class="setting-item">
         <div>
           <div class="setting-label">Base Branch</div>
@@ -313,7 +301,19 @@
     </div>
 
     <div class="setting-group">
-      <h4>Prompt Templates</h4>
+      <h4>Mardown Templates</h4>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Coding Convention</div>
+          <div class="setting-description">
+            Coding convention rules for AI review (edit in
+            .vscode/ai-reviewer-coding-convention.md)
+          </div>
+        </div>
+        <div class="setting-control">
+          <button type="button" onclick="openConventionFile()">Edit</button>
+        </div>
+      </div>
       <div class="setting-item">
         <div>
           <div class="setting-label">Code Review Prompt</div>
@@ -340,6 +340,18 @@
           <button type="button" onclick="openGhostTextPromptFile()">
             Edit
           </button>
+        </div>
+      </div>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">System prompt</div>
+          <div class="setting-description">
+            System prompt for the AI (edit in
+            .vscode/ai-reviewer-system-prompt.md)
+          </div>
+        </div>
+        <div class="setting-control">
+          <button type="button" onclick="openCustomPromptFile()">Edit</button>
         </div>
       </div>
     </div>
@@ -377,10 +389,6 @@
           <input type="checkbox" id="ghostTextEnabled" checked />
         </div>
       </div>
-    </div>
-
-    <div class="setting-group">
-      <h4>Advanced</h4>
       <div class="setting-item">
         <div>
           <div class="setting-label">Debug mode</div>
@@ -388,18 +396,6 @@
         </div>
         <div class="setting-control">
           <input type="checkbox" id="debugMode" />
-        </div>
-      </div>
-      <div class="setting-item">
-        <div>
-          <div class="setting-label">Custom prompt template</div>
-          <div class="setting-description">
-            Custom review prompt template (edit in
-            .vscode/ai-reviewer-custom-prompt.md)
-          </div>
-        </div>
-        <div class="setting-control">
-          <button type="button" onclick="openCustomPromptFile()">Edit</button>
         </div>
       </div>
     </div>

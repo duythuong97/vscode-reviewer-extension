@@ -17,7 +17,10 @@
       "properties": {
         "aiReviewer.authType": {
           "type": "string",
-          "enum": ["token", "cookie"],
+          "enum": [
+            "token",
+            "cookie"
+          ],
           "default": "token",
           "description": "Authentication type for LLM services: 'token' for API token, 'cookie' for cookie-based auth",
           "scope": "application"
@@ -42,7 +45,10 @@
         },
         "aiReviewer.providerType": {
           "type": "string",
-          "enum": ["ollama", "openai"],
+          "enum": [
+            "ollama",
+            "openai"
+          ],
           "default": "ollama",
           "description": "Type of LLM provider to use",
           "scope": "application"
@@ -81,7 +87,10 @@
         },
         "aiReviewer.suggestionDisplayMode": {
           "type": "string",
-          "enum": ["panel", "inline"],
+          "enum": [
+            "panel",
+            "inline"
+          ],
           "default": "panel",
           "description": "How to display convention suggestions: 'panel' for a separate webview panel, 'inline' for inline diagnostics in the editor",
           "scope": "application"
@@ -94,7 +103,11 @@
         },
         "aiReviewer.severityThreshold": {
           "type": "string",
-          "enum": ["low", "medium", "high"],
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ],
           "default": "medium",
           "description": "Minimum severity level to show in reviews",
           "scope": "application"
@@ -143,11 +156,6 @@
           "id": "ai-reviewer-sidebar",
           "title": "AI Reviewer",
           "icon": "$(comment-discussion)"
-        },
-        {
-          "id": "ai-reviewer-secondary-panel",
-          "title": "AI Reviewer Tools",
-          "icon": "$(tools)"
         }
       ]
     },
@@ -163,33 +171,12 @@
           "name": "Chat",
           "type": "webview"
         }
-      ],
-      "ai-reviewer-secondary-panel": [
-        {
-          "id": "aiReviewer.historyPanel",
-          "name": "Review History",
-          "type": "webview"
-        },
-        {
-          "id": "aiReviewer.analyticsPanel",
-          "name": "Analytics",
-          "type": "webview"
-        },
-        {
-          "id": "aiReviewer.templatesPanel",
-          "name": "Templates",
-          "type": "webview"
-        }
       ]
     },
     "commands": [
       {
         "command": "ai-reviewer.reviewFile",
         "title": "AI Reviewer: Review Current File"
-      },
-      {
-        "command": "ai-reviewer.reviewAndSuggest",
-        "title": "AI Reviewer: Review and Suggest"
       },
       {
         "command": "ai-reviewer.reviewPR",
@@ -255,6 +242,34 @@
       {
         "command": "aiReviewer.chatPanel.focus",
         "title": "Focus AI Reviewer Chat Panel"
+      },
+      {
+        "command": "ai-reviewer.viewChatHistory",
+        "title": "AI Reviewer: View Chat History"
+      },
+      {
+        "command": "ai-reviewer.clearChatHistory",
+        "title": "AI Reviewer: Clear Chat History"
+      },
+      {
+        "command": "ai-reviewer.newChatSession",
+        "title": "AI Reviewer: New Chat Session"
+      },
+      {
+        "command": "ai-reviewer.showLLMStatus",
+        "title": "AI Reviewer: Show LLM Connection Status"
+      },
+      {
+        "command": "ai-reviewer.debugChatHistory",
+        "title": "AI Reviewer: Debug Chat History"
+      },
+      {
+        "command": "ai-reviewer.debugApplyCode",
+        "title": "AI Reviewer: Debug Apply Code"
+      },
+      {
+        "command": "ai-reviewer.debugJsonExtraction",
+        "title": "AI Reviewer: Debug JSON Extraction"
       }
     ],
     "menus": {
@@ -272,11 +287,6 @@
           "group": "ai-reviewer@1"
         },
         {
-          "command": "ai-reviewer.reviewAndSuggest",
-          "when": "editorTextFocus",
-          "group": "ai-reviewer@2"
-        },
-        {
           "command": "ai-reviewer.reviewPR",
           "when": "resourceScheme == file",
           "group": "ai-reviewer@3"
@@ -285,10 +295,6 @@
       "commandPalette": [
         {
           "command": "ai-reviewer.reviewFile",
-          "when": "editorTextFocus"
-        },
-        {
-          "command": "ai-reviewer.reviewAndSuggest",
           "when": "editorTextFocus"
         },
         {
@@ -301,10 +307,19 @@
           "command": "ai-reviewer.toggleGhostText"
         },
         {
-          "command": "ai-reviewer.testGhostText"
+          "command": "ai-reviewer.aiPromptPopup"
         },
         {
-          "command": "ai-reviewer.aiPromptPopup"
+          "command": "ai-reviewer.viewChatHistory"
+        },
+        {
+          "command": "ai-reviewer.clearChatHistory"
+        },
+        {
+          "command": "ai-reviewer.newChatSession"
+        },
+        {
+          "command": "ai-reviewer.showLLMStatus"
         }
       ]
     }
@@ -336,7 +351,11 @@
     "typescript": "^5.8.3"
   },
   "dependencies": {
+    "@types/json5": "^0.0.30",
     "@types/marked": "^5.0.2",
-    "marked": "^15.0.12"
+    "@types/strip-json-comments": "^0.0.30",
+    "json5": "^2.2.3",
+    "marked": "^15.0.12",
+    "strip-json-comments": "^5.0.2"
   }
 }

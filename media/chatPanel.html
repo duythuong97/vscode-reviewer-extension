@@ -658,6 +658,7 @@
         font-size: 12px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+        white-space: nowrap;
       }
 
       .stat-total {
@@ -788,16 +789,13 @@
               if (message.isHtml) {
                 streamingBubble.innerHTML = message.chunk;
               } else {
-                accumulatedText += message.chunk;
-                const htmlContent = marked.parse
-                  ? marked.parse(accumulatedText)
-                  : marked(accumulatedText);
-                streamingBubble.innerHTML = htmlContent;
+                // Fallback for plain text (shouldn't happen now)
+                streamingBubble.textContent = message.chunk;
               }
               document.getElementById("messagesContainer").scrollTop =
                 document.getElementById("messagesContainer").scrollHeight;
             }
-            if (!message.isHtml) setTimeout(addApplyButtonsToCodeBlocks, 0);
+            if (message.isHtml) setTimeout(addApplyButtonsToCodeBlocks, 0);
             break;
 
           case "streamComplete":
@@ -817,6 +815,41 @@
             document.getElementById("sendButton").disabled = false;
             document.getElementById("sendButton").textContent = "Send Message";
             document.getElementById("cancelButton").style.display = "none";
+            break;
+
+          case "loadChatHistory":
+            // Load chat history messages
+            const messages = message.messages || [];
+            const messagesContainer = document.getElementById("messagesContainer");
+
+            console.log("Loading chat history:", messages.length, "messages");
+
+            // Clear existing messages
+            messagesContainer.innerHTML = "";
+
+            // Add each message from history
+            messages.forEach(msg => {
+              if (msg.isUser) {
+                // User messages: display as plain text
+                addMessage(msg.content, true);
+              } else {
+                // AI messages: content is already HTML (parsed in extension)
+                addMessage(msg.content, false);
+              }
+            });
+
+            // Add apply buttons to code blocks after loading
+            setTimeout(addApplyButtonsToCodeBlocks, 100);
+
+            // Scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            console.log("Chat history loaded successfully");
+            break;
+
+          case "clearChatPanel":
+            // Clear the chat panel
+            const container = document.getElementById("messagesContainer");
+            container.innerHTML = "";
             break;
 
           case "streamCancelled":
@@ -940,7 +973,12 @@
                                         )}</code></pre>
                                         <div class="code-header">
                                             <span>Suggested Fix</span>
-                                            <button class="apply-button" onclick="applyCodeChange('${fileName}', ${
+                                        </div>
+                                        <pre><code>${escapeHtml(
+                                          violation.suggestion
+                                        )}</code></pre>
+                                        <div class="code-block-buttons" style="display: flex; gap: 4px; margin-top: 8px;">
+                                            <button class="apply-code-btn" style="background-color: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px;" onclick="applyCodeChange('${fileName}', ${
                     violation.line
                   }, '${escapeHtml(violation.suggestion)}', '${escapeHtml(
                     violation.originalCode || ""
@@ -948,9 +986,6 @@
                                                 ✨ Apply Fix
                                             </button>
                                         </div>
-                                        <pre><code>${escapeHtml(
-                                          violation.suggestion
-                                        )}</code></pre>
                                     </div>
                                 </div>`;
                 });
@@ -1020,6 +1055,11 @@
           e.preventDefault();
           clearCodeSelections();
         }
+      });
+
+      // Notify extension that webview is ready
+      vscode.postMessage({
+        type: "webviewReady"
       });
 
       function sendMessage() {

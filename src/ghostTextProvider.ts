@@ -1,8 +1,7 @@
 import * as vscode from "vscode";
-import { logDebug } from "./helper";
+import { debugOutputChannel, logDebug } from "./utils";
 import { LLMProviderFactory } from "./llmProvider";
 import { PromptManager } from "./prompts";
-import { debugOutputChannel } from "./extension";
 import { ConfigManager } from "./configManager";
 
 export class GhostTextProvider implements vscode.InlineCompletionItemProvider {

@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { ConfigManager } from "./configManager";
-import { debugOutputChannel, logDebug } from "./extension";
+import { debugOutputChannel, logDebug } from "./utils";
 
 // Interface for LLM configuration
 export interface LLMConfig {
@@ -107,43 +107,69 @@ export class OllamaLLMProvider extends BaseLLMProvider {
   async callLLM(prompt: string): Promise<LLMResponse> {
     this.validateConfig();
 
-    try {
-      const requestBody = {
-        model: this.config.model,
-        prompt: prompt,
-        stream: false,
-        options: {
-          num_predict: this.config.maxTokens,
-          temperature: this.config.temperature,
-        },
-      };
+    // Show progress indication
+    return vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: "AI Reviewer - Calling LLM",
+        cancellable: true,
+      },
+      async (progress, cancellationToken) => {
+        try {
+          logDebug(debugOutputChannel, `[LLM] Starting request to ${this.config.endpoint}`);
+          progress.report({ message: "Connecting to LLM..." });
 
-      const response = await fetch(this.config.endpoint, {
-        method: "POST",
-        headers: this.buildHeaders(),
-        body: JSON.stringify(requestBody),
-      });
+          const requestBody = {
+            model: this.config.model,
+            prompt: prompt,
+            stream: false,
+            options: {
+              num_predict: this.config.maxTokens,
+              temperature: this.config.temperature,
+            },
+          };
 
-      if (response.ok) {
-        const data = (await response.json()) as any;
-        logDebug(debugOutputChannel, `[LLM Response] callLLM`, data);
-        return {
-          content: data?.response ?? "No response received from LLM",
-          usage: data.usage,
-        };
+          progress.report({ message: "Sending request..." });
+          logDebug(debugOutputChannel, `[LLM] Request body:`, { model: this.config.model, promptLength: prompt.length });
+
+          const response = await fetch(this.config.endpoint, {
+            method: "POST",
+            headers: this.buildHeaders(),
+            body: JSON.stringify(requestBody),
+          });
+
+          progress.report({ message: "Processing response..." });
+
+          if (response.ok) {
+            const data = (await response.json()) as any;
+            logDebug(debugOutputChannel, `[LLM] Response received successfully`, {
+              responseLength: data?.response?.length || 0,
+              usage: data.usage
+            });
+
+            progress.report({ message: "Response processed successfully" });
+
+            return {
+              content: data?.response ?? "No response received from LLM",
+              usage: data.usage,
+            };
+          }
+
+          const errorText = await response.text();
+          logDebug(debugOutputChannel, `[LLM] API Error: ${response.status} - ${response.statusText}`, errorText);
+          throw new Error(
+            `LLM API error: ${response.status} - ${response.statusText}. Details: ${errorText}`
+          );
+        } catch (error) {
+          logDebug(debugOutputChannel, `[LLM] Request failed:`, error);
+          throw new Error(
+            `Failed to call LLM API: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`
+          );
+        }
       }
-
-      const errorText = await response.text();
-      throw new Error(
-        `LLM API error: ${response.status} - ${response.statusText}. Details: ${errorText}`
-      );
-    } catch (error) {
-      throw new Error(
-        `Failed to call LLM API: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
-      );
-    }
+    );
   }
 
   async callLLMStream(
@@ -153,114 +179,139 @@ export class OllamaLLMProvider extends BaseLLMProvider {
   ): Promise<void> {
     this.validateConfig();
 
-    return new Promise((resolve, reject) => {
-      // Create AbortController for fetch cancellation
-      const abortController = new AbortController();
+    return vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: "AI Reviewer - Streaming LLM Response",
+        cancellable: true,
+      },
+      async (progress, progressCancellationToken) => {
+        return new Promise((resolve, reject) => {
+          // Create AbortController for fetch cancellation
+          const abortController = new AbortController();
 
-      // Listen for cancellation
-      const cancellationListener = cancellationToken.onCancellationRequested(
-        () => {
-          abortController.abort();
-          reject(new Error("Request cancelled by user"));
-        }
-      );
-
-      const requestBody = {
-        model: this.config.model,
-        prompt: prompt,
-        stream: true,
-        options: {
-          num_predict: this.config.maxTokens,
-          temperature: this.config.temperature,
-        },
-      };
-
-      // Make the API request
-      fetch(this.config.endpoint, {
-        method: "POST",
-        headers: this.buildHeaders(),
-        body: JSON.stringify(requestBody),
-        signal: abortController.signal,
-      })
-        .then(async (response) => {
-          if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(
-              `LLM API error: ${response.status} - ${response.statusText}. Details: ${errorText}`
-            );
-          }
-
-          const reader = response.body?.getReader();
-          if (!reader) {
-            throw new Error("Response body is not readable");
-          }
-
-          const decoder = new TextDecoder();
-          let buffer = "";
-
-          const processStream = async () => {
-            while (true) {
-              // Check for cancellation before each read
-              if (cancellationToken.isCancellationRequested) {
-                reader.cancel();
-                throw new Error("Request cancelled by user");
-              }
-
-              const { done, value } = await reader.read();
-
-              if (done) {
-                break;
-              }
-
-              buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split("\n");
-              buffer = lines.pop() || "";
-
-              for (const line of lines) {
-                if (line.trim() === "") continue;
-
-                try {
-                  // Remove "data: " prefix if present
-                  const jsonStr = line.startsWith("data: ")
-                    ? line.slice(6)
-                    : line;
-                  if (jsonStr === "[DONE]") continue;
-
-                  const data = JSON.parse(jsonStr) as any;
-                  if (data.response) {
-                    onChunk(data.response);
-                  }
-                } catch (e) {
-                  console.error("Error parsing streaming response", {
-                    line,
-                    error: e,
-                  });
-                }
-              }
-            }
-          };
-
-          await processStream();
-          resolve();
-        })
-        .catch((error) => {
-          if (error.name === "AbortError") {
+          // Combine both cancellation tokens
+          const combinedCancellationToken = new vscode.CancellationTokenSource();
+          cancellationToken.onCancellationRequested(() => {
+            combinedCancellationToken.cancel();
+            abortController.abort();
             reject(new Error("Request cancelled by user"));
-          } else {
-            reject(
-              new Error(
-                `Failed to call LLM API with streaming: ${
-                  error instanceof Error ? error.message : "Unknown error"
-                }`
-              )
-            );
+          });
+          progressCancellationToken.onCancellationRequested(() => {
+            combinedCancellationToken.cancel();
+            abortController.abort();
+            reject(new Error("Request cancelled by user"));
+          });
+
+          let chunkCount = 0;
+          let totalContent = "";
+
+          try {
+            logDebug(debugOutputChannel, `[LLM Stream] Starting streaming request to ${this.config.endpoint}`);
+            progress.report({ message: "Connecting to LLM..." });
+
+            const requestBody = {
+              model: this.config.model,
+              prompt: prompt,
+              stream: true,
+              options: {
+                num_predict: this.config.maxTokens,
+                temperature: this.config.temperature,
+              },
+            };
+
+            progress.report({ message: "Sending streaming request..." });
+            logDebug(debugOutputChannel, `[LLM Stream] Request body:`, { model: this.config.model, promptLength: prompt.length });
+
+            // Make the API request
+            fetch(this.config.endpoint, {
+              method: "POST",
+              headers: this.buildHeaders(),
+              body: JSON.stringify(requestBody),
+              signal: abortController.signal,
+            })
+              .then(async (response) => {
+                if (!response.ok) {
+                  const errorText = await response.text();
+                  logDebug(debugOutputChannel, `[LLM Stream] API Error: ${response.status} - ${response.statusText}`, errorText);
+                  throw new Error(
+                    `LLM API error: ${response.status} - ${response.statusText}. Details: ${errorText}`
+                  );
+                }
+
+                progress.report({ message: "Receiving stream..." });
+                logDebug(debugOutputChannel, `[LLM Stream] Stream started successfully`);
+
+                const reader = response.body?.getReader();
+                if (!reader) {
+                  throw new Error("Response body is not readable");
+                }
+
+                const decoder = new TextDecoder();
+                let buffer = "";
+
+                const processStream = async () => {
+                  try {
+                    while (true) {
+                      const { done, value } = await reader.read();
+                      if (done) {
+                        logDebug(debugOutputChannel, `[LLM Stream] Stream completed`, {
+                          chunkCount,
+                          totalLength: totalContent.length
+                        });
+                        progress.report({ message: "Stream completed" });
+                        resolve();
+                        break;
+                      }
+
+                      buffer += decoder.decode(value, { stream: true });
+                      const lines = buffer.split("\n");
+                      buffer = lines.pop() || "";
+
+                      for (const line of lines) {
+                        if (line.trim() === "") continue;
+
+                        try {
+                          const data = JSON.parse(line);
+                          if (data.response) {
+                            chunkCount++;
+                            totalContent += data.response;
+                            onChunk(data.response);
+
+                            // Update progress every 10 chunks
+                            if (chunkCount % 10 === 0) {
+                              progress.report({
+                                message: `Received ${chunkCount} chunks (${totalContent.length} chars)`
+                              });
+                            }
+                          }
+                        } catch (parseError) {
+                          // Skip malformed JSON lines
+                          continue;
+                        }
+                      }
+                    }
+                  } catch (error) {
+                    logDebug(debugOutputChannel, `[LLM Stream] Stream processing error:`, error);
+                    reject(error);
+                  } finally {
+                    reader.releaseLock();
+                  }
+                };
+
+                processStream();
+              })
+              .catch((error) => {
+                logDebug(debugOutputChannel, `[LLM Stream] Request failed:`, error);
+                reject(error);
+              });
+          } catch (error) {
+            logDebug(debugOutputChannel, `[LLM Stream] Setup failed:`, error);
+            reject(error);
           }
-        })
-        .finally(() => {
-          // Clean up cancellation listener
-          cancellationListener.dispose();
         });
-    });
+      }
+    );
   }
 }
 
@@ -269,46 +320,73 @@ export class OpenAILLMProvider extends BaseLLMProvider {
   async callLLM(prompt: string): Promise<LLMResponse> {
     this.validateConfig();
 
-    try {
-      const requestBody = {
-        model: this.config.model,
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        max_tokens: this.config.maxTokens,
-        temperature: this.config.temperature,
-      };
+    // Show progress indication
+    return vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: "AI Reviewer - Calling OpenAI",
+        cancellable: true,
+      },
+      async (progress, cancellationToken) => {
+        try {
+          logDebug(debugOutputChannel, `[OpenAI] Starting request to ${this.config.endpoint}`);
+          progress.report({ message: "Connecting to OpenAI..." });
 
-      const response = await fetch(this.config.endpoint, {
-        method: "POST",
-        headers: this.buildHeaders(),
-        body: JSON.stringify(requestBody),
-      });
+          const requestBody = {
+            model: this.config.model,
+            messages: [
+              {
+                role: "user",
+                content: prompt,
+              },
+            ],
+            max_tokens: this.config.maxTokens,
+            temperature: this.config.temperature,
+          };
 
-      if (response.ok) {
-        const data = (await response.json()) as any;
-        return {
-          content:
-            data.choices?.[0]?.message?.content ??
-            "No response received from LLM",
-          usage: data.usage,
-        };
+          progress.report({ message: "Sending request..." });
+          logDebug(debugOutputChannel, `[OpenAI] Request body:`, { model: this.config.model, promptLength: prompt.length });
+
+          const response = await fetch(this.config.endpoint, {
+            method: "POST",
+            headers: this.buildHeaders(),
+            body: JSON.stringify(requestBody),
+          });
+
+          progress.report({ message: "Processing response..." });
+
+          if (response.ok) {
+            const data = (await response.json()) as any;
+            logDebug(debugOutputChannel, `[OpenAI] Response received successfully`, {
+              responseLength: data.choices?.[0]?.message?.content?.length || 0,
+              usage: data.usage
+            });
+
+            progress.report({ message: "Response processed successfully" });
+
+            return {
+              content:
+                data.choices?.[0]?.message?.content ??
+                "No response received from LLM",
+              usage: data.usage,
+            };
+          }
+
+          const errorText = await response.text();
+          logDebug(debugOutputChannel, `[OpenAI] API Error: ${response.status} - ${response.statusText}`, errorText);
+          throw new Error(
+            `OpenAI API error: ${response.status} - ${response.statusText}. Details: ${errorText}`
+          );
+        } catch (error) {
+          logDebug(debugOutputChannel, `[OpenAI] Request failed:`, error);
+          throw new Error(
+            `Failed to call OpenAI API: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`
+          );
+        }
       }
-
-      const errorText = await response.text();
-      throw new Error(
-        `OpenAI API error: ${response.status} - ${response.statusText}. Details: ${errorText}`
-      );
-    } catch (error) {
-      throw new Error(
-        `Failed to call OpenAI API: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
-      );
-    }
+    );
   }
 
   async callLLMStream(
@@ -318,112 +396,147 @@ export class OpenAILLMProvider extends BaseLLMProvider {
   ): Promise<void> {
     this.validateConfig();
 
-    return new Promise((resolve, reject) => {
-      const abortController = new AbortController();
+    return vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: "AI Reviewer - Streaming OpenAI Response",
+        cancellable: true,
+      },
+      async (progress, progressCancellationToken) => {
+        return new Promise((resolve, reject) => {
+          const abortController = new AbortController();
 
-      const cancellationListener = cancellationToken.onCancellationRequested(
-        () => {
-          abortController.abort();
-          reject(new Error("Request cancelled by user"));
-        }
-      );
-
-      const requestBody = {
-        model: this.config.model,
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        max_tokens: this.config.maxTokens,
-        temperature: this.config.temperature,
-        stream: true,
-      };
-
-      fetch(this.config.endpoint, {
-        method: "POST",
-        headers: this.buildHeaders(),
-        body: JSON.stringify(requestBody),
-        signal: abortController.signal,
-      })
-        .then(async (response) => {
-          if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(
-              `OpenAI API error: ${response.status} - ${response.statusText}. Details: ${errorText}`
-            );
-          }
-
-          const reader = response.body?.getReader();
-          if (!reader) {
-            throw new Error("Response body is not readable");
-          }
-
-          const decoder = new TextDecoder();
-          let buffer = "";
-
-          const processStream = async () => {
-            while (true) {
-              if (cancellationToken.isCancellationRequested) {
-                reader.cancel();
-                throw new Error("Request cancelled by user");
-              }
-
-              const { done, value } = await reader.read();
-
-              if (done) {
-                break;
-              }
-
-              buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split("\n");
-              buffer = lines.pop() || "";
-
-              for (const line of lines) {
-                if (line.trim() === "") continue;
-
-                try {
-                  const jsonStr = line.startsWith("data: ")
-                    ? line.slice(6)
-                    : line;
-                  if (jsonStr === "[DONE]") continue;
-
-                  const data = JSON.parse(jsonStr) as any;
-                  const content = data.choices?.[0]?.delta?.content;
-                  if (content) {
-                    onChunk(content);
-                  }
-                } catch (e) {
-                  console.error("Error parsing OpenAI streaming response", {
-                    line,
-                    error: e,
-                  });
-                }
-              }
-            }
-          };
-
-          await processStream();
-          resolve();
-        })
-        .catch((error) => {
-          if (error.name === "AbortError") {
+          // Combine both cancellation tokens
+          const combinedCancellationToken = new vscode.CancellationTokenSource();
+          cancellationToken.onCancellationRequested(() => {
+            combinedCancellationToken.cancel();
+            abortController.abort();
             reject(new Error("Request cancelled by user"));
-          } else {
-            reject(
-              new Error(
-                `Failed to call OpenAI API with streaming: ${
-                  error instanceof Error ? error.message : "Unknown error"
-                }`
-              )
-            );
+          });
+          progressCancellationToken.onCancellationRequested(() => {
+            combinedCancellationToken.cancel();
+            abortController.abort();
+            reject(new Error("Request cancelled by user"));
+          });
+
+          let chunkCount = 0;
+          let totalContent = "";
+
+          try {
+            logDebug(debugOutputChannel, `[OpenAI Stream] Starting streaming request to ${this.config.endpoint}`);
+            progress.report({ message: "Connecting to OpenAI..." });
+
+            const requestBody = {
+              model: this.config.model,
+              messages: [
+                {
+                  role: "user",
+                  content: prompt,
+                },
+              ],
+              max_tokens: this.config.maxTokens,
+              temperature: this.config.temperature,
+              stream: true,
+            };
+
+            progress.report({ message: "Sending streaming request..." });
+            logDebug(debugOutputChannel, `[OpenAI Stream] Request body:`, { model: this.config.model, promptLength: prompt.length });
+
+            fetch(this.config.endpoint, {
+              method: "POST",
+              headers: this.buildHeaders(),
+              body: JSON.stringify(requestBody),
+              signal: abortController.signal,
+            })
+              .then(async (response) => {
+                if (!response.ok) {
+                  const errorText = await response.text();
+                  logDebug(debugOutputChannel, `[OpenAI Stream] API Error: ${response.status} - ${response.statusText}`, errorText);
+                  throw new Error(
+                    `OpenAI API error: ${response.status} - ${response.statusText}. Details: ${errorText}`
+                  );
+                }
+
+                progress.report({ message: "Receiving stream..." });
+                logDebug(debugOutputChannel, `[OpenAI Stream] Stream started successfully`);
+
+                const reader = response.body?.getReader();
+                if (!reader) {
+                  throw new Error("Response body is not readable");
+                }
+
+                const decoder = new TextDecoder();
+                let buffer = "";
+
+                const processStream = async () => {
+                  try {
+                    while (true) {
+                      const { done, value } = await reader.read();
+
+                      if (done) {
+                        logDebug(debugOutputChannel, `[OpenAI Stream] Stream completed`, {
+                          chunkCount,
+                          totalLength: totalContent.length
+                        });
+                        progress.report({ message: "Stream completed" });
+                        resolve();
+                        break;
+                      }
+
+                      buffer += decoder.decode(value, { stream: true });
+                      const lines = buffer.split("\n");
+                      buffer = lines.pop() || "";
+
+                      for (const line of lines) {
+                        if (line.trim() === "") continue;
+
+                        try {
+                          const jsonStr = line.startsWith("data: ")
+                            ? line.slice(6)
+                            : line;
+                          if (jsonStr === "[DONE]") continue;
+
+                          const data = JSON.parse(jsonStr) as any;
+                          const content = data.choices?.[0]?.delta?.content;
+                          if (content) {
+                            chunkCount++;
+                            totalContent += content;
+                            onChunk(content);
+
+                            // Update progress every 10 chunks
+                            if (chunkCount % 10 === 0) {
+                              progress.report({
+                                message: `Received ${chunkCount} chunks (${totalContent.length} chars)`
+                              });
+                            }
+                          }
+                        } catch (parseError) {
+                          // Skip malformed JSON lines
+                          continue;
+                        }
+                      }
+                    }
+                  } catch (error) {
+                    logDebug(debugOutputChannel, `[OpenAI Stream] Stream processing error:`, error);
+                    reject(error);
+                  } finally {
+                    reader.releaseLock();
+                  }
+                };
+
+                processStream();
+              })
+              .catch((error) => {
+                logDebug(debugOutputChannel, `[OpenAI Stream] Request failed:`, error);
+                reject(error);
+              });
+          } catch (error) {
+            logDebug(debugOutputChannel, `[OpenAI Stream] Setup failed:`, error);
+            reject(error);
           }
-        })
-        .finally(() => {
-          cancellationListener.dispose();
         });
-    });
+      }
+    );
   }
 }
 

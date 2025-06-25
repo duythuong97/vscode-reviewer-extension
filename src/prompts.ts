@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { ConfigManager } from "./configManager";
 import { WorkspaceFileTemplate } from "./workspaceFileTemplate";
+import { formatCodeWithLineNumbers } from "./utils";
 import * as path from "path";
 
 export class PromptManager {
@@ -41,10 +42,13 @@ export class PromptManager {
     );
     const codingConvention = this.configManager.getConfig().codingConvention;
 
+    // Format code with line numbers for better LLM understanding
+    const formattedCode = formatCodeWithLineNumbers(code);
+
     return (
       promptTemplate
         .replace("{language}", document.languageId)
-        .replace("{code}", code)
+        .replace("{code}", formattedCode)
         .replace("{codingConvention}", codingConvention)
     );
   }

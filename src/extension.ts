@@ -7,26 +7,7 @@ import { GhostTextProvider } from "./ghostTextProvider";
 import { ConfigManager } from "./configManager";
 import { ChatPanelProvider } from "./chatPanelProvider";
 import { SettingsPanelProvider } from "./settingsPanelProvider";
-
-// Create output channel for debug messages
-export const debugOutputChannel =
-  vscode.window.createOutputChannel("AI Reviewer Debug");
-
-// Log debug message helper function
-export function logDebug(
-  channel: vscode.OutputChannel,
-  message: string,
-  data?: any
-): void {
-  const timestamp = new Date().toISOString();
-  const logMessage = `[${timestamp}] ${message}`;
-
-  if (data) {
-    channel.appendLine(`${logMessage}\n${JSON.stringify(data, null, 2)}`);
-  } else {
-    channel.appendLine(logMessage);
-  }
-}
+import { debugOutputChannel, logDebug, handleError } from "./utils";
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -95,12 +76,7 @@ export async function activate(context: vscode.ExtensionContext) {
       "AI Reviewer extension initialized successfully"
     );
   } catch (error) {
-    logDebug(debugOutputChannel, "Error during extension activation", error);
-    vscode.window.showErrorMessage(
-      `Failed to activate AI Reviewer extension: ${
-        error instanceof Error ? error.message : "Unknown error"
-      }`
-    );
+    handleError(error, "Extension activation failed");
   }
 }
 

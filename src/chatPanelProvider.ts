@@ -1,15 +1,19 @@
 import * as vscode from "vscode";
-import { logDebug } from "./helper";
+import { debugOutputChannel, logDebug, parseLineNumberFromResponse } from "./utils";
 import { LLMProviderFactory } from "./llmProvider";
-import { debugOutputChannel } from "./extension";
 import * as path from 'path';
 import * as fs from 'fs';
+import { marked } from "marked";
+import { ChatHistoryManager } from "./chatHistoryManager";
 
 export class ChatPanelProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "aiReviewer.chatPanel";
   private _view?: vscode.WebviewView;
+  private chatHistoryManager: ChatHistoryManager;
 
-  constructor(private readonly _extensionUri: vscode.Uri) {}
+  constructor(private readonly _extensionUri: vscode.Uri) {
+    this.chatHistoryManager = ChatHistoryManager.getInstance();
+  }
 
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -39,18 +43,22 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = htmlContent;
 
+    // Load chat history if available - with longer timeout to ensure webview is ready
+    setTimeout(() => {
+      this.loadChatHistory();
+    }, 500);
+
     // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage(async (data) => {
       switch (data.type) {
+        case "webviewReady":
+          // Webview is ready, load chat history
+          this.loadChatHistory();
+          break;
         case "sendMessage":
           try {
             const config = vscode.workspace.getConfiguration("aiReviewer");
-            const apiToken = config.get<string>("apiToken", "");
-            const llmEndpoint = config.get<string>(
-              "llmEndpoint",
-              "http://localhost:11434/api/generate"
-            );
-            const llmModel = config.get<string>("llmModel", "llama3");
+
 
             // Get all accumulated code selections
             const codeSelections = data.codeSelections || [];
@@ -75,10 +83,26 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
               lineEnd = codeSelections[codeSelections.length - 1].lineEnd;
             }
 
-            // Prepare prompt with selected code and user message
+            // Save user message to chat history
+            this.chatHistoryManager.addMessage(
+              data.message,
+              true, // isUser
+              codeSelections,
+              fileName,
+              lineStart,
+              lineEnd
+            );
+
+            // Get conversation context for LLM
+            const conversationContext = this.chatHistoryManager.getConversationContext(5);
+
+            // Prepare prompt with conversation context, selected code and user message
             let prompt = data.message;
+            if (conversationContext) {
+              prompt = `${conversationContext}\n\nCurrent Question: ${data.message}`;
+            }
             if (selectedCode) {
-              prompt = `${selectedCode}\n\nUser Question: ${data.message}`;
+              prompt = `${selectedCode}\n\n${prompt}`;
             }
 
             // Debug: Log the prompt to console
@@ -90,6 +114,7 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
                   ? `Yes (${codeSelections.length} selections)`
                   : "No",
                 userMessage: data.message,
+                hasContext: conversationContext ? "Yes" : "No",
                 prompt:
                   prompt.substring(0, 300) + (prompt.length > 300 ? "..." : ""),
               }
@@ -115,17 +140,35 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
             // Use cancellable streaming LLM call with raw text streaming
             try {
               const llmProvider = LLMProviderFactory.createProvider();
+              let accumulatedText = "";
+
               await llmProvider.callLLMStream(
                 prompt,
                 cancellationTokenSource.token,
                 async (chunk: string) => {
-                  // Send raw text chunk for smooth streaming
+                  // Accumulate text and parse markdown in extension
+                  accumulatedText += chunk;
+
+                  // Parse markdown to HTML
+                  const htmlContent = marked.parse(accumulatedText);
+
+                  // Send HTML chunk for smooth streaming
                   webviewView.webview.postMessage({
                     type: "streamChunk",
-                    chunk: chunk,
-                    isHtml: false,
+                    chunk: htmlContent,
+                    isHtml: true,
                   });
                 }
+              );
+
+              // Save AI response to chat history (save raw markdown text)
+              this.chatHistoryManager.addMessage(
+                accumulatedText,
+                false, // isUser = false (AI response)
+                codeSelections,
+                fileName,
+                lineStart,
+                lineEnd
               );
 
               // Send completion message
@@ -200,16 +243,54 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
           try {
             const { fileName, lineNumber, newCode, originalCode } = data;
 
-            // Find the document by file name
+            // Parse line number if it's a string or needs parsing
+            let parsedLineNumber = lineNumber;
+            if (typeof lineNumber === 'string') {
+              const extractedLineNumber = parseLineNumberFromResponse(lineNumber);
+              if (extractedLineNumber !== null) {
+                parsedLineNumber = extractedLineNumber;
+                logDebug(debugOutputChannel, `[ApplyCode] Parsed line number from "${lineNumber}" to ${parsedLineNumber}`);
+              } else {
+                logDebug(debugOutputChannel, `[ApplyCode] Could not parse line number from "${lineNumber}"`);
+              }
+            }
+
+            // Find the document by file name - improved logic
             const documents = vscode.workspace.textDocuments;
-            const targetDocument = documents.find(doc =>
-              doc.fileName.endsWith(fileName) || doc.fileName.includes(fileName)
+            let targetDocument = documents.find(doc =>
+              doc.fileName.endsWith(fileName) ||
+              doc.fileName.includes(fileName) ||
+              doc.fileName.split(/[\\/]/).pop() === fileName
             );
+
+            // If not found in open documents, try to find in workspace
+            if (!targetDocument) {
+              const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+              if (workspaceFolder) {
+                const possiblePaths = [
+                  path.join(workspaceFolder.uri.fsPath, fileName),
+                  path.join(workspaceFolder.uri.fsPath, 'src', fileName),
+                  path.join(workspaceFolder.uri.fsPath, 'lib', fileName),
+                  path.join(workspaceFolder.uri.fsPath, 'app', fileName)
+                ];
+
+                for (const filePath of possiblePaths) {
+                  try {
+                    if (fs.existsSync(filePath)) {
+                      targetDocument = await vscode.workspace.openTextDocument(filePath);
+                      break;
+                    }
+                  } catch (error) {
+                    // Continue to next path
+                  }
+                }
+              }
+            }
 
             if (!targetDocument) {
               webviewView.webview.postMessage({
                 type: "applyError",
-                message: `File ${fileName} not found or not open`
+                message: `File ${fileName} not found. Please make sure the file is open or exists in the workspace.`
               });
               return;
             }
@@ -218,17 +299,24 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
             const editor = await vscode.window.showTextDocument(targetDocument);
 
             // Find the line to replace
-            const lineIndex = lineNumber - 1; // Convert to 0-based index
+            const lineIndex = parsedLineNumber - 1; // Convert to 0-based index
             if (lineIndex < 0 || lineIndex >= targetDocument.lineCount) {
               webviewView.webview.postMessage({
                 type: "applyError",
-                message: `Line ${lineNumber} is out of range`
+                message: `Line ${parsedLineNumber} is out of range (document has ${targetDocument.lineCount} lines)`
               });
               return;
             }
 
             const line = targetDocument.lineAt(lineIndex);
             const lineRange = new vscode.Range(line.range.start, line.range.end);
+
+            // Verify the original code matches (optional safety check)
+            const currentLineText = targetDocument.getText(lineRange);
+            if (originalCode && currentLineText.trim() !== originalCode.trim()) {
+              logDebug(debugOutputChannel, `[ApplyCode] Original code mismatch. Expected: "${originalCode}", Found: "${currentLineText}"`);
+              // Continue anyway, but log the mismatch
+            }
 
             // Apply the edit
             await editor.edit(editBuilder => {
@@ -242,12 +330,13 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
             webviewView.webview.postMessage({
               type: "applySuccess",
               fileName: fileName,
-              lineNumber: lineNumber
+              lineNumber: parsedLineNumber
             });
 
-            vscode.window.showInformationMessage(`Applied change to ${fileName} line ${lineNumber}`);
+            vscode.window.showInformationMessage(`Applied change to ${fileName} line ${parsedLineNumber}`);
 
           } catch (error) {
+            logDebug(debugOutputChannel, `[ApplyCode] Error: ${error}`);
             webviewView.webview.postMessage({
               type: "applyError",
               message: error instanceof Error ? error.message : "Unknown error"
@@ -376,6 +465,77 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
       type: 'reviewResults',
       reviewData: reviewData,
       fileName: fileName
+    });
+  }
+
+  public async loadChatHistory() {
+    if (!this._view) {
+      logDebug(debugOutputChannel, "[ChatHistory] No webview available for loading history");
+      return;
+    }
+
+    const currentSession = this.chatHistoryManager.getCurrentSession();
+    if (!currentSession || currentSession.messages.length === 0) {
+      logDebug(debugOutputChannel, "[ChatHistory] No current session or messages to load");
+      return;
+    }
+
+    logDebug(debugOutputChannel, `[ChatHistory] Loading ${currentSession.messages.length} messages from session ${currentSession.id}`);
+
+    // Parse markdown for AI messages before sending to webview
+    const processedMessages = currentSession.messages.map(msg => {
+      if (msg.isUser) {
+        // User messages: keep as is
+        return msg;
+      } else {
+        // AI messages: parse markdown to HTML
+        try {
+          const parsedContent = marked.parse(msg.content);
+          return {
+            ...msg,
+            content: parsedContent,
+            isHtml: true // Flag to indicate this is HTML content
+          };
+        } catch (error) {
+          logDebug(debugOutputChannel, `[ChatHistory] Error parsing markdown: ${error}`);
+          return msg; // Return original if parsing fails
+        }
+      }
+    });
+
+    // Send all messages from current session to chat panel
+    this._view.webview.postMessage({
+      type: 'loadChatHistory',
+      messages: processedMessages
+    });
+  }
+
+  public async clearChatPanel() {
+    if (!this._view) {
+      return;
+    }
+
+    // Clear the chat panel
+    this._view.webview.postMessage({
+      type: 'clearChatPanel'
+    });
+  }
+
+  public isWebviewAvailable(): boolean {
+    return !!this._view;
+  }
+
+  public async testApplyCodeChange(fileName: string, lineNumber: number, newCode: string, originalCode: string): Promise<void> {
+    if (!this._view) {
+      throw new Error("Webview not available");
+    }
+
+    this._view.webview.postMessage({
+      type: "applyCodeChange",
+      fileName: fileName,
+      lineNumber: lineNumber,
+      newCode: newCode,
+      originalCode: originalCode
     });
   }
 

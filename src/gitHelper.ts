@@ -1,5 +1,4 @@
-import { logDebug } from "./helper";
-import { debugOutputChannel } from "./extension";
+import { debugOutputChannel, logDebug } from "./utils";
 export class GitHelper {
   static async getCurrentBranch(repoPath: string): Promise<string | null> {
     try {
