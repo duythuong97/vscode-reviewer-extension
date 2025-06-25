@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
-import { ConfigManager } from "./configManager";
-import { WorkspaceFileTemplate } from "./workspaceFileTemplate";
-import { formatCodeWithLineNumbers } from "./utils";
+import { ConfigManager } from "../core/managers/ConfigManager";
+import { WorkspaceFileTemplate } from "../core/workspaceFileTemplate";
+import { VSCodeUtils } from "../utils";
 import * as path from "path";
 
 export class PromptManager {
@@ -43,14 +43,12 @@ export class PromptManager {
     const codingConvention = this.configManager.getConfig().codingConvention;
 
     // Format code with line numbers for better LLM understanding
-    const formattedCode = formatCodeWithLineNumbers(code);
+    const formattedCode = VSCodeUtils.formatCodeWithLineNumbers(code);
 
-    return (
-      promptTemplate
-        .replace("{language}", document.languageId)
-        .replace("{code}", formattedCode)
-        .replace("{codingConvention}", codingConvention)
-    );
+    return promptTemplate
+      .replace("{language}", document.languageId)
+      .replace("{code}", formattedCode)
+      .replace("{codingConvention}", codingConvention);
   }
 
   public getGhostTextPrompt(
@@ -62,12 +60,10 @@ export class PromptManager {
     );
     const codingConvention = this.configManager.getConfig().codingConvention;
 
-    return (
-      promptTemplate
-        .replace("{language}", document.languageId)
-        .replace("{context}", context)
-        .replace("{codingConvention}", codingConvention)
-    );
+    return promptTemplate
+      .replace("{language}", document.languageId)
+      .replace("{context}", context)
+      .replace("{codingConvention}", codingConvention);
   }
 
   public getCustomPrompt(document: vscode.TextDocument, code: string): string {
@@ -81,12 +77,10 @@ export class PromptManager {
       return this.getCodeReviewPrompt(document, code);
     }
 
-    return (
-      customPromptTemplate
-        .replace("{language}", document.languageId)
-        .replace("{code}", code)
-        .replace("{codingConvention}", codingConvention)
-    );
+    return customPromptTemplate
+      .replace("{language}", document.languageId)
+      .replace("{code}", code)
+      .replace("{codingConvention}", codingConvention);
   }
 
   // Method to get file paths for editing

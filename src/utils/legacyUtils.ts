@@ -190,7 +190,7 @@ function cleanJsonString(jsonStr: string): string {
 function fixCommonJsonIssues(response: string): string | null {
   // Try to find the largest JSON-like structure and fix it
   const jsonMatch = response.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return null;
+  if (!jsonMatch) {return null;}
 
   let jsonStr = jsonMatch[0];
 

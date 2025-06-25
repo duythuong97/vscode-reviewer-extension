@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { handleError } from "../utils";
+import { VSCodeUtils } from '../utils';
 
 export class GhostTextCommands {
   public acceptGhostSuggestion(): void {
@@ -8,7 +8,7 @@ export class GhostTextCommands {
       // For now, just log the action
       vscode.window.showInformationMessage("Ghost suggestion accepted (placeholder)");
     } catch (error) {
-      handleError(error, "Accepting ghost suggestion");
+      VSCodeUtils.handleError(error, "Accepting ghost suggestion");
     }
   }
 
@@ -18,7 +18,7 @@ export class GhostTextCommands {
       // For now, just log the action
       vscode.window.showInformationMessage("Ghost text toggled (placeholder)");
     } catch (error) {
-      handleError(error, "Toggling ghost text");
+      VSCodeUtils.handleError(error, "Toggling ghost text");
     }
   }
 
@@ -28,7 +28,7 @@ export class GhostTextCommands {
       // For now, just log the action
       vscode.window.showInformationMessage("AI prompt popup (placeholder)");
     } catch (error) {
-      handleError(error, "Showing AI prompt popup");
+      VSCodeUtils.handleError(error, "Showing AI prompt popup");
     }
   }
 }

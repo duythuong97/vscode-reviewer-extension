@@ -1,17 +1,12 @@
 import * as vscode from "vscode";
-import {
-  debugOutputChannel,
-  logDebug,
-  parseLineNumberFromResponse,
-  renderTemplate,
-  renderChatMessageTemplate,
-} from "./utils";
-import { LLMProviderFactory } from "./llmProvider";
+import { Logger, debugOutputChannel, VSCodeUtils } from "../../utils";
+import { LLMProviderFactory } from "../../services/llm/providers/LLMProvider";
 import * as path from "path";
 import * as fs from "fs";
 import { marked } from "marked";
-import { ChatHistoryManager } from "./chatHistoryManager";
-import { ViolationStorageManager } from "./violationStorageManager";
+import { ChatHistoryManager } from "../../core/managers/ChatHistoryManager";
+import { ViolationStorageManager } from "../../services/storage/managers/ViolationStorageManager";
+import { TemplateRenderer } from "../../utils/template/TemplateRenderer";
 
 export class ChatPanelProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "aiReviewer.chatPanel";
@@ -138,7 +133,7 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
             }
 
             // Debug: Log the prompt to console
-            logDebug(
+            Logger.logDebug(
               debugOutputChannel,
               "=== AI Reviewer Chat - Prompt Debug ===",
               {
@@ -275,7 +270,7 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
           try {
             const { fileName, lineNumber, newCode, originalCode } = data;
 
-            logDebug(
+            Logger.logDebug(
               debugOutputChannel,
               `[ApplyCode] Attempting to apply code change:`,
               {
@@ -294,15 +289,15 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
             let parsedLineNumber = lineNumber;
             if (typeof lineNumber === "string") {
               const extractedLineNumber =
-                parseLineNumberFromResponse(lineNumber);
+                VSCodeUtils.parseLineNumberFromResponse(lineNumber);
               if (extractedLineNumber !== null) {
                 parsedLineNumber = extractedLineNumber;
-                logDebug(
+                Logger.logDebug(
                   debugOutputChannel,
                   `[ApplyCode] Parsed line number from "${lineNumber}" to ${parsedLineNumber}`
                 );
               } else {
-                logDebug(
+                Logger.logDebug(
                   debugOutputChannel,
                   `[ApplyCode] Could not parse line number from "${lineNumber}"`
                 );
@@ -367,7 +362,7 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
             const line = document.lineAt(parsedLineNumber - 1);
             const lineText = line.text;
 
-            logDebug(
+            Logger.logDebug(
               debugOutputChannel,
               `[ApplyCode] Applying change to line ${parsedLineNumber}:`,
               {
@@ -399,7 +394,7 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
                 // Clean up the new code (remove extra whitespace/newlines)
                 cleanedNewCode = newCode.trim();
 
-                logDebug(
+                Logger.logDebug(
                   debugOutputChannel,
                   `[ApplyCode] Replacing specific code at position ${originalCodeIndex}:`,
                   {
@@ -420,7 +415,7 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
                 const indentation = lineText.match(/^\s*/)?.[0] || "";
                 cleanedNewCode = indentation + newCode.trim();
 
-                logDebug(
+                Logger.logDebug(
                   debugOutputChannel,
                   `[ApplyCode] Original code not found, replacing entire line with indentation:`,
                   {
@@ -440,7 +435,7 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
               const indentation = lineText.match(/^\s*/)?.[0] || "";
               cleanedNewCode = indentation + newCode.trim();
 
-              logDebug(
+              Logger.logDebug(
                 debugOutputChannel,
                 `[ApplyCode] No original code provided, replacing entire line with indentation:`,
                 {
@@ -461,12 +456,12 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
               lineNumber: parsedLineNumber,
             });
 
-            logDebug(
+            Logger.logDebug(
               debugOutputChannel,
               `[ApplyCode] Successfully applied code change to ${fileName} line ${parsedLineNumber}`
             );
           } catch (error) {
-            logDebug(
+            Logger.logDebug(
               debugOutputChannel,
               `[ApplyCode] Error applying code change:`,
               error
@@ -505,7 +500,7 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
               });
             }
           } catch (error) {
-            logDebug(
+            Logger.logDebug(
               debugOutputChannel,
               `[ChatPanel] Error updating violation status:`,
               error
@@ -513,34 +508,6 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
             webviewView.webview.postMessage({
               type: "violationStatusUpdateError",
               message: `Error updating violation status: ${
-                error instanceof Error ? error.message : "Unknown error"
-              }`,
-            });
-          }
-          break;
-        case "reReviewWithFeedback":
-          // Handle re-review with feedback
-          try {
-            const { fileName } = data;
-
-            // Execute the re-review command
-            await vscode.commands.executeCommand(
-              "ai-reviewer.reReviewWithFeedback"
-            );
-
-            logDebug(
-              debugOutputChannel,
-              `[ChatPanel] Triggered re-review for ${fileName}`
-            );
-          } catch (error) {
-            logDebug(
-              debugOutputChannel,
-              `[ChatPanel] Error triggering re-review:`,
-              error
-            );
-            webviewView.webview.postMessage({
-              type: "error",
-              content: `Error triggering re-review: ${
                 error instanceof Error ? error.message : "Unknown error"
               }`,
             });
@@ -655,7 +622,7 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
                 );
                 await vscode.window.showTextDocument(document);
 
-                logDebug(
+                Logger.logDebug(
                   debugOutputChannel,
                   `[ChatPanel] Opened file: ${fileUri.fsPath}`
                 );
@@ -672,7 +639,7 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
               });
             }
           } catch (error) {
-            logDebug(
+            Logger.logDebug(
               debugOutputChannel,
               `[ChatPanel] Error opening file:`,
               error
@@ -771,9 +738,14 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
     `;
   }
 
-  public async sendReviewResults(reviewData: any, fileName: string): Promise<void> {
+  public async sendReviewResults(
+    reviewData: any,
+    fileName: string
+  ): Promise<void> {
     // This method is deprecated - review results should be sent to ReviewPanelProvider
-    console.warn("sendReviewResults is deprecated. Use ReviewPanelProvider instead.");
+    console.warn(
+      "sendReviewResults is deprecated. Use ReviewPanelProvider instead."
+    );
     // This method is no longer used - review results are handled by ReviewPanelProvider
   }
 
@@ -801,7 +773,7 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
           note: note,
         });
 
-        logDebug(
+        Logger.logDebug(
           debugOutputChannel,
           `[ChatPanel] Updated violation status: ${reviewId}[${violationIndex}] -> ${status}`
         );
@@ -809,7 +781,7 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
 
       return success;
     } catch (error) {
-      logDebug(
+      Logger.logDebug(
         debugOutputChannel,
         `[ChatPanel] Failed to update violation status:`,
         error
@@ -821,7 +793,7 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
   public async loadChatHistory(): Promise<void> {
     try {
       if (!this._view) {
-        logDebug(
+        Logger.logDebug(
           debugOutputChannel,
           `[ChatPanel] Webview not available, skipping loadChatHistory`
         );
@@ -834,7 +806,7 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
       if (history && history.messages) {
         history.messages = history.messages.map((msg: any) => ({
           ...msg,
-          content: msg.isUser ? msg.content : marked.parse(msg.content || '')
+          content: msg.isUser ? msg.content : marked.parse(msg.content || ""),
         }));
       }
 
@@ -845,17 +817,17 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
           title: "",
           messages: [],
           timestamp: Date.now(),
-        }
+        },
       });
 
-      logDebug(
+      Logger.logDebug(
         debugOutputChannel,
         `[ChatPanel] Loaded chat history with ${
           history?.messages.length || 0
         } messages`
       );
     } catch (error) {
-      logDebug(
+      Logger.logDebug(
         debugOutputChannel,
         `[ChatPanel] Failed to load chat history:`,
         error
@@ -868,9 +840,9 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
       this._view?.webview.postMessage({
         type: "clearChatPanel",
       });
-      logDebug(debugOutputChannel, `[ChatPanel] Chat panel cleared`);
+      Logger.logDebug(debugOutputChannel, `[ChatPanel] Chat panel cleared`);
     } catch (error) {
-      logDebug(
+      Logger.logDebug(
         debugOutputChannel,
         `[ChatPanel] Failed to clear chat panel:`,
         error
@@ -881,17 +853,20 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
   public async refreshChatHistory(): Promise<void> {
     try {
       if (!this._view) {
-        logDebug(
+        Logger.logDebug(
           debugOutputChannel,
           `[ChatPanel] Webview not available, skipping refreshChatHistory`
         );
         return;
       }
 
-      logDebug(debugOutputChannel, `[ChatPanel] Force refreshing chat history`);
+      Logger.logDebug(
+        debugOutputChannel,
+        `[ChatPanel] Force refreshing chat history`
+      );
       await this.loadChatHistory();
     } catch (error) {
-      logDebug(
+      Logger.logDebug(
         debugOutputChannel,
         `[ChatPanel] Failed to refresh chat history:`,
         error
@@ -901,25 +876,6 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
 
   public isWebviewAvailable(): boolean {
     return !!this._view;
-  }
-
-  public async testApplyCodeChange(
-    fileName: string,
-    lineNumber: number,
-    newCode: string,
-    originalCode: string
-  ): Promise<void> {
-    if (!this._view) {
-      throw new Error("Webview not available");
-    }
-
-    this._view.webview.postMessage({
-      type: "applyCodeChange",
-      fileName: fileName,
-      lineNumber: lineNumber,
-      newCode: newCode,
-      originalCode: originalCode,
-    });
   }
 
   private async ensureChatPanelVisible(): Promise<void> {
@@ -965,13 +921,17 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  private addMessage(message: any, isUser: boolean, isStreaming: boolean = false) {
+  private addMessage(
+    message: any,
+    isUser: boolean,
+    isStreaming: boolean = false
+  ) {
     let messageContent = message.content || message.message || "";
     if (!isUser) {
       // Convert markdown to HTML for AI message
       messageContent = marked.parse(messageContent);
     }
-    const renderedMessage = renderChatMessageTemplate({
+    const renderedMessage = TemplateRenderer.renderChatMessageTemplate({
       messageType: isUser ? "user" : "ai",
       messageContent: messageContent,
       timestamp: message.timestamp || new Date().toLocaleTimeString(),

@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
-import { LLMProviderFactory, BaseLLMProvider } from "../llmProvider";
-import { ViolationStorageManager } from "../violationStorageManager";
-import { debugOutputChannel, logDebug, handleError, showSuccess, showWarning } from "../utils";
+import { Logger, VSCodeUtils, debugOutputChannel, getDebugOutputChannel } from '../utils';
+import { LLMProviderFactory, BaseLLMProvider } from '../services/llm/providers';
+import { ViolationStorageManager } from '../services/storage/managers/ViolationStorageManager';
 
 export class UtilityCommands {
   constructor(
@@ -10,10 +10,10 @@ export class UtilityCommands {
 
   public async showDebugOutput(): Promise<void> {
     try {
-      debugOutputChannel.show();
-      logDebug(debugOutputChannel, `[Utility] Debug output shown`);
+      getDebugOutputChannel().show();
+      Logger.logDebug(debugOutputChannel, `[Utility] Debug output shown`);
     } catch (error) {
-      handleError(error, "Showing debug output");
+      VSCodeUtils.handleError(error, "Showing debug output");
     }
   }
 
@@ -34,9 +34,9 @@ export class UtilityCommands {
       const message = `LLM Provider: ${status.provider}\nEndpoint: ${status.endpoint}\nModel: ${status.model}\nAuth: ${status.authType}`;
       vscode.window.showInformationMessage(message);
 
-      logDebug(debugOutputChannel, `[Utility] Showed LLM status`, { status });
+      Logger.logDebug(debugOutputChannel, `[Utility] Showed LLM status`, { status });
     } catch (error) {
-      handleError(error, "Showing LLM status");
+      VSCodeUtils.handleError(error, "Showing LLM status");
     }
   }
 
@@ -52,14 +52,14 @@ export class UtilityCommands {
         const success = await this.violationStorageManager.clearAllResults();
 
         if (success) {
-          showSuccess("All saved violations cleared successfully.");
-          logDebug(debugOutputChannel, `[Utility] Cleared all saved violations`);
+          VSCodeUtils.showSuccess("All saved violations cleared successfully.");
+          Logger.logDebug(debugOutputChannel, `[Utility] Cleared all saved violations`);
         } else {
-          showWarning("Failed to clear saved violations.");
+          VSCodeUtils.showWarning("Failed to clear saved violations.");
         }
       }
     } catch (error) {
-      handleError(error, "Clearing saved violations");
+      VSCodeUtils.handleError(error, "Clearing saved violations");
     }
   }
 
@@ -84,11 +84,11 @@ export class UtilityCommands {
 
       await vscode.window.showTextDocument(document);
 
-      logDebug(debugOutputChannel, `[Utility] Viewed review history`, {
+      Logger.logDebug(debugOutputChannel, `[Utility] Viewed review history`, {
         reviewCount: reviewResults.length
       });
     } catch (error) {
-      handleError(error, "Viewing review history");
+      VSCodeUtils.handleError(error, "Viewing review history");
     }
   }
 
@@ -107,9 +107,9 @@ export class UtilityCommands {
 
       vscode.window.showInformationMessage(message);
 
-      logDebug(debugOutputChannel, `[Utility] Refreshed analytics`, analytics);
+      Logger.logDebug(debugOutputChannel, `[Utility] Refreshed analytics`, analytics);
     } catch (error) {
-      handleError(error, "Refreshing analytics");
+      VSCodeUtils.handleError(error, "Refreshing analytics");
     }
   }
 }

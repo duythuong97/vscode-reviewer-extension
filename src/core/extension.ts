@@ -1,18 +1,20 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
-import { CommandManager } from "./commands";
-import { GhostTextProvider } from "./ghostTextProvider";
-import { ConfigManager } from "./configManager";
-import { ChatPanelProvider } from "./chatPanelProvider";
-import { ReviewPanelProvider } from "./reviewPanelProvider";
-import { SettingsPanelProvider } from "./settingsPanelProvider";
-import { debugOutputChannel, logDebug, handleError } from "./utils";
+import { Logger, debugOutputChannel } from "../utils/logging/Logger";
+
+// Import from new structure
+import { ConfigManager } from "./managers/ConfigManager";
+import { ChatPanelProvider } from "../ui/panels/ChatPanelProvider";
+import { ReviewPanelProvider } from "../ui/panels/ReviewPanelProvider";
+import { SettingsPanelProvider } from "../ui/panels/SettingsPanelProvider";
+import { GhostTextProvider } from "../ui/ghostText/GhostTextProvider";
+import { CommandManager } from "../commands/index.legacy";
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext) {
-  logDebug(debugOutputChannel, "AI Reviewer extension is now active!");
+  Logger.logDebug(debugOutputChannel, "AI Reviewer extension is now active!");
 
   try {
     // Initialize ConfigManager
@@ -21,7 +23,7 @@ export async function activate(context: vscode.ExtensionContext) {
     // Validate configuration
     const validation = configManager.validateConfig();
     if (!validation.isValid) {
-      logDebug(
+      Logger.logDebug(
         debugOutputChannel,
         "Configuration validation failed",
         validation.errors
@@ -60,7 +62,7 @@ export async function activate(context: vscode.ExtensionContext) {
       )
     );
 
-    // Initialize command manager with both panel providers
+    // Register commands using CommandManager
     const commandManager = CommandManager.getInstance(chatPanelProvider, reviewPanelProvider);
     commandManager.registerCommands(context);
 
@@ -76,15 +78,18 @@ export async function activate(context: vscode.ExtensionContext) {
       );
     }
 
-    logDebug(
+    Logger.logDebug(
       debugOutputChannel,
       "AI Reviewer extension initialized successfully"
     );
   } catch (error) {
-    handleError(error, "Extension activation failed");
+    Logger.logDebug(debugOutputChannel, "Extension activation failed:", error);
+    vscode.window.showErrorMessage(
+      `Extension activation failed: ${error instanceof Error ? error.message : error}`
+    );
   }
 }
 
 export function deactivate() {
-  logDebug(debugOutputChannel, "AI Reviewer extension is now deactivated");
+  Logger.logDebug(debugOutputChannel, "AI Reviewer extension is now deactivated");
 }

@@ -1,22 +1,13 @@
 import * as vscode from "vscode";
+import { Logger, VSCodeUtils, JsonExtractor, debugOutputChannel } from '../utils';
 import { marked } from "marked";
-import { LLMProviderFactory } from "../llmProvider";
-import { PromptManager } from "../prompts";
-import { GitHelper } from "../gitHelper";
-import { ReviewPanelProvider } from "../reviewPanelProvider";
-import { ConfigManager } from "../configManager";
-import { ChatHistoryManager } from "../chatHistoryManager";
-import { ViolationStorageManager } from "../violationStorageManager";
-import {
-  debugOutputChannel,
-  logDebug,
-  extractJSONFromResponse,
-  readFileContent,
-  createProgressOptions,
-  handleError,
-  showSuccess,
-  showWarning,
-} from "../utils";
+import { LLMProviderFactory } from '../services/llm/providers';
+import { PromptManager } from '../core/Prompts';
+import { GitHelper } from '../services/git/GitHelper';
+import { ReviewPanelProvider } from '../ui/panels/ReviewPanelProvider';
+import { ConfigManager } from '../core/managers/ConfigManager';
+import { ChatHistoryManager } from '../core/managers/ChatHistoryManager';
+import { ViolationStorageManager } from '../services/storage/managers/ViolationStorageManager';
 
 export class ReviewCommands {
   constructor(
@@ -37,18 +28,18 @@ export class ReviewCommands {
     const fileName =
       document.fileName.split(/[\\/]/).pop() || document.fileName;
 
-    logDebug(
+    Logger.logDebug(
       debugOutputChannel,
       `[Review] Starting review for file: ${fileName}`
     );
 
     await vscode.window.withProgress(
-      createProgressOptions(`Reviewing ${fileName}...`),
+      VSCodeUtils.createProgressOptions(`Reviewing ${fileName}...`),
       async (progress) => {
         try {
           progress.report({ message: "Reading file content..." });
           const fileContent = document.getText();
-          logDebug(
+          Logger.logDebug(
             debugOutputChannel,
             `[Review] File content length: ${fileContent.length}`
           );
@@ -58,7 +49,7 @@ export class ReviewCommands {
             document,
             fileContent
           );
-          logDebug(
+          Logger.logDebug(
             debugOutputChannel,
             `[Review] Prompt length: ${prompt.length}`
           );
@@ -77,14 +68,14 @@ export class ReviewCommands {
           );
 
           const response = { content: responseContent };
-          logDebug(
+          Logger.logDebug(
             debugOutputChannel,
             `[Review] AI response received, length: ${response.content.length}`
           );
 
           progress.report({ message: "Processing review results..." });
-          const reviewData = extractJSONFromResponse(response.content);
-          logDebug(
+          const reviewData = JsonExtractor.extractJSONFromResponse(response.content);
+          Logger.logDebug(
             debugOutputChannel,
             `[Review] Extracted review data:`,
             reviewData
@@ -102,7 +93,7 @@ export class ReviewCommands {
             reviewData.summary = "Review completed";
           }
 
-          logDebug(debugOutputChannel, `[Review] Processed review data:`, {
+          Logger.logDebug(debugOutputChannel, `[Review] Processed review data:`, {
             violationsCount: reviewData.violations.length,
             hasSummary: !!reviewData.summary,
             violations: reviewData.violations,
@@ -118,7 +109,7 @@ export class ReviewCommands {
             status: "completed",
           });
 
-          logDebug(
+          Logger.logDebug(
             debugOutputChannel,
             `[Review] Saved review result with ID: ${reviewId}`
           );
@@ -129,8 +120,8 @@ export class ReviewCommands {
             fileName
           );
 
-          showSuccess(`Review completed for ${fileName}`);
-          logDebug(
+          VSCodeUtils.showSuccess(`Review completed for ${fileName}`);
+          Logger.logDebug(
             debugOutputChannel,
             `[Review] Completed review for ${fileName}`,
             {
@@ -139,8 +130,8 @@ export class ReviewCommands {
             }
           );
         } catch (error) {
-          logDebug(debugOutputChannel, `[Review] Error during review:`, error);
-          handleError(error, `Reviewing ${fileName}`);
+          Logger.logDebug(debugOutputChannel, `[Review] Error during review:`, error);
+          VSCodeUtils.handleError(error, `Reviewing ${fileName}`);
         }
       }
     );
@@ -151,7 +142,7 @@ export class ReviewCommands {
     const baseBranch = config.baseBranch;
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 
-    logDebug(debugOutputChannel, `[ReviewPR] Starting PR review:`, {
+    Logger.logDebug(debugOutputChannel, `[ReviewPR] Starting PR review:`, {
       baseBranch: baseBranch,
       workspaceFolder: workspaceFolder?.uri.fsPath,
       config: config
@@ -165,12 +156,12 @@ export class ReviewCommands {
     let changedFiles: { name: string; path: string }[] = [];
     try {
       changedFiles = await GitHelper.getChangedFiles(repoPath, baseBranch);
-      logDebug(debugOutputChannel, `[ReviewPR] Found changed files:`, {
+      Logger.logDebug(debugOutputChannel, `[ReviewPR] Found changed files:`, {
         count: changedFiles.length,
         files: changedFiles.map(f => f.path)
       });
     } catch (error) {
-      logDebug(debugOutputChannel, `[ReviewPR] Error getting changed files:`, error);
+      Logger.logDebug(debugOutputChannel, `[ReviewPR] Error getting changed files:`, error);
       vscode.window.showErrorMessage(`Failed to get changed files: ${error}`);
       return;
     }
@@ -250,7 +241,7 @@ export class ReviewCommands {
 
             // Log LLM response if debugMode is enabled
             if (this.configManager.getConfig().debugMode) {
-              logDebug(
+              Logger.logDebug(
                 debugOutputChannel,
                 `[LLM Response] reviewPR for ${filePath}`,
                 response.content
@@ -258,7 +249,7 @@ export class ReviewCommands {
             }
 
             // Use improved JSON extraction
-            violations = extractJSONFromResponse(response.content);
+            violations = JsonExtractor.extractJSONFromResponse(response.content);
           } catch (error) {
             console.error(error);
             vscode.window.showErrorMessage(
@@ -291,7 +282,7 @@ export class ReviewCommands {
             }
           }
 
-          logDebug(
+          Logger.logDebug(
             debugOutputChannel,
             `[ReviewPR] Normalized violations for ${filePath}:`,
             {
@@ -301,21 +292,16 @@ export class ReviewCommands {
             }
           );
 
-          // Send violations to chat panel
+          // Send violations to review panel
           try {
-            logDebug(debugOutputChannel, `[ReviewPR] Sending review results to Review panel:`, {
+            Logger.logDebug(debugOutputChannel, `[ReviewPR] Sending review results to Review panel:`, {
               file: filePath,
               violationsCount: violationsArray.length,
               summary: summary
             });
 
-            // Ensure review panel is focused before sending results
-            await vscode.commands.executeCommand("aiReviewer.reviewPanel.focus");
-
-            // Small delay to ensure webview is ready
-            await new Promise(resolve => setTimeout(resolve, 200));
-
-            this.reviewPanelProvider.sendReviewResults(
+            // Send review results to review panel (this will handle focusing the panel)
+            await this.reviewPanelProvider.sendReviewResults(
               {
                 file: filePath,
                 violations: violationsArray,
@@ -324,7 +310,7 @@ export class ReviewCommands {
               filePath
             );
 
-            logDebug(debugOutputChannel, `[ReviewPR] Successfully sent review results for ${filePath}`);
+            Logger.logDebug(debugOutputChannel, `[ReviewPR] Successfully sent review results for ${filePath}`);
 
             // Save review result to storage
             const reviewResult =
@@ -338,7 +324,7 @@ export class ReviewCommands {
             const saveSuccess =
               await this.violationStorageManager.saveReviewResult(reviewResult);
             if (!saveSuccess) {
-              logDebug(
+              Logger.logDebug(
                 debugOutputChannel,
                 `[ReviewPR] Failed to save review result for ${filePath}`
               );
@@ -346,9 +332,9 @@ export class ReviewCommands {
 
             successCount++;
           } catch (error) {
-            logDebug(debugOutputChannel, `[ReviewPR] Error sending review results:`, error);
+            Logger.logDebug(debugOutputChannel, `[ReviewPR] Error sending review results:`, error);
             vscode.window.showWarningMessage(
-              `Failed to send review results to chat for file ${filePath}: ${error}`
+              `Failed to send review results to review panel for file ${filePath}: ${error}`
             );
             errorCount++;
           }
@@ -398,7 +384,7 @@ export class ReviewCommands {
     }
 
     await vscode.window.withProgress(
-      createProgressOptions(`Re-reviewing ${fileName} with feedback...`),
+      VSCodeUtils.createProgressOptions(`Re-reviewing ${fileName} with feedback...`),
       async (progress) => {
         try {
           progress.report({ message: "Reading file content..." });
@@ -433,7 +419,7 @@ export class ReviewCommands {
           const response = { content: responseContent };
 
           progress.report({ message: "Processing re-review results..." });
-          const reviewData = extractJSONFromResponse(response.content);
+          const reviewData = JsonExtractor.extractJSONFromResponse(response.content);
 
           if (!reviewData) {
             throw new Error(
@@ -460,8 +446,8 @@ export class ReviewCommands {
             fileName
           );
 
-          showSuccess(`Re-review completed for ${fileName}`);
-          logDebug(
+          VSCodeUtils.showSuccess(`Re-review completed for ${fileName}`);
+          Logger.logDebug(
             debugOutputChannel,
             `[ReReview] Completed re-review for ${fileName}`,
             {
@@ -471,7 +457,7 @@ export class ReviewCommands {
             }
           );
         } catch (error) {
-          handleError(error, `Re-reviewing ${fileName}`);
+          VSCodeUtils.handleError(error, `Re-reviewing ${fileName}`);
         }
       }
     );

@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
-import { PromptManager } from "../prompts";
-import { debugOutputChannel, logDebug, handleError } from "../utils";
+import { Logger, VSCodeUtils, debugOutputChannel } from '../utils';
+import { PromptManager } from '../core/Prompts';
 
 export class TemplateCommands {
   constructor(
@@ -13,7 +13,7 @@ export class TemplateCommands {
       // For now, just log the action
       vscode.window.showInformationMessage("Use template (placeholder)");
     } catch (error) {
-      handleError(error, "Using template");
+      VSCodeUtils.handleError(error, "Using template");
     }
   }
 
@@ -39,11 +39,11 @@ export class TemplateCommands {
           const document = await vscode.workspace.openTextDocument(filePath);
           await vscode.window.showTextDocument(document);
 
-          logDebug(debugOutputChannel, `[Template] Editing template`, { template: selected.value, filePath });
+          Logger.logDebug(debugOutputChannel, `[Template] Editing template`, { template: selected.value, filePath });
         }
       }
     } catch (error) {
-      handleError(error, "Editing template");
+      VSCodeUtils.handleError(error, "Editing template");
     }
   }
 
@@ -53,7 +53,7 @@ export class TemplateCommands {
       // For now, just log the action
       vscode.window.showInformationMessage("Add template (placeholder)");
     } catch (error) {
-      handleError(error, "Adding template");
+      VSCodeUtils.handleError(error, "Adding template");
     }
   }
 
@@ -63,7 +63,7 @@ export class TemplateCommands {
       // For now, just log the action
       vscode.window.showInformationMessage("Show right panel (placeholder)");
     } catch (error) {
-      handleError(error, "Showing right panel");
+      VSCodeUtils.handleError(error, "Showing right panel");
     }
   }
 }

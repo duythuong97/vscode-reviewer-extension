@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
-import { ConfigManager } from "./configManager";
-import { PromptManager } from "./prompts";
-import { WorkspaceFileTemplate } from "./workspaceFileTemplate";
+import { ConfigManager } from "../../core/managers/ConfigManager";
+import { PromptManager } from "../../core/Prompts";
+import { WorkspaceFileTemplate } from "../../core/workspaceFileTemplate";
 import * as path from "path";
 
 export class SettingsPanelProvider implements vscode.WebviewViewProvider {
@@ -180,7 +180,11 @@ export class SettingsPanelProvider implements vscode.WebviewViewProvider {
         "SettingsPanelProvider trying to load HTML from:",
         path.join(__dirname, "../media/settingsPanel.html")
       );
-      const htmlPath = path.join(__dirname, "../media/settingsPanel.html");
+      const htmlPath = path.join(
+        this._extensionUri.fsPath,
+        "media",
+        "settingsPanel.html"
+      );
       const htmlContent = require("fs").readFileSync(htmlPath, "utf8");
       console.log(
         "SettingsPanelProvider HTML file loaded successfully, length:",

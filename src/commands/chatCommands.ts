@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
-import { ChatPanelProvider } from "../chatPanelProvider";
-import { ChatHistoryManager } from "../chatHistoryManager";
-import { ViolationStorageManager } from "../violationStorageManager";
-import { debugOutputChannel, logDebug, handleError, showSuccess, showWarning } from "../utils";
+import { Logger, VSCodeUtils, debugOutputChannel } from "../utils";
+import { ChatPanelProvider } from "../ui/panels/ChatPanelProvider";
+import { ChatHistoryManager } from "../core/managers/ChatHistoryManager";
+import { ViolationStorageManager } from "../services/storage/managers/ViolationStorageManager";
 
 export class ChatCommands {
   constructor(
@@ -18,12 +18,14 @@ export class ChatCommands {
         await vscode.commands.executeCommand("aiReviewer.chatPanel.focus");
       } else {
         // Try to show the chat panel
-        await vscode.commands.executeCommand("workbench.view.extension.ai-reviewer-sidebar");
+        await vscode.commands.executeCommand(
+          "workbench.view.extension.ai-reviewer-sidebar"
+        );
       }
 
-      logDebug(debugOutputChannel, `[Chat] Focused chat panel`);
+      Logger.logDebug(debugOutputChannel, `[Chat] Focused chat panel`);
     } catch (error) {
-      handleError(error, "Focusing chat panel");
+      VSCodeUtils.handleError(error, "Focusing chat panel");
     }
   }
 
@@ -37,28 +39,32 @@ export class ChatCommands {
       }
 
       // Show chat history in a new document
-      const historyContent = history.messages.map(msg =>
-        `[${msg.isUser ? 'User' : 'AI'}] ${msg.content}`
-      ).join('\n\n');
+      const historyContent = history.messages
+        .map((msg) => `[${msg.isUser ? "User" : "AI"}] ${msg.content}`)
+        .join("\n\n");
 
       const document = await vscode.workspace.openTextDocument({
-        content: `Chat History - ${history.title || 'Session'}\n\n${historyContent}`,
-        language: 'markdown'
+        content: `Chat History - ${
+          history.title || "Session"
+        }\n\n${historyContent}`,
+        language: "markdown",
       });
 
       await vscode.window.showTextDocument(document);
 
-      logDebug(debugOutputChannel, `[Chat] Viewed chat history`, {
+      Logger.logDebug(debugOutputChannel, `[Chat] Viewed chat history`, {
         messageCount: history.messages.length,
-        sessionId: history.id
+        sessionId: history.id,
       });
     } catch (error) {
-      handleError(error, "Viewing chat history");
+      VSCodeUtils.handleError(error, "Viewing chat history");
     }
   }
 
   public async clearChatHistory(): Promise<void> {
     try {
+      Logger.logDebug(debugOutputChannel, "Clearing chat history");
+
       const result = await vscode.window.showWarningMessage(
         "Are you sure you want to clear all chat history? This action cannot be undone.",
         { modal: true },
@@ -69,11 +75,11 @@ export class ChatCommands {
         await this.chatHistoryManager.clearAllHistory();
         await this.chatPanelProvider.clearChatPanel();
 
-        showSuccess("Chat history cleared successfully.");
-        logDebug(debugOutputChannel, `[Chat] Cleared all chat history`);
+        VSCodeUtils.showSuccess("Chat history cleared successfully.");
+        Logger.logDebug(debugOutputChannel, `[Chat] Cleared all chat history`);
       }
     } catch (error) {
-      handleError(error, "Clearing chat history");
+      VSCodeUtils.handleError(error, "Clearing chat history");
     }
   }
 
@@ -82,10 +88,10 @@ export class ChatCommands {
       await this.chatHistoryManager.startNewSession();
       await this.chatPanelProvider.clearChatPanel();
 
-      showSuccess("New chat session created.");
-      logDebug(debugOutputChannel, `[Chat] Created new chat session`);
+      VSCodeUtils.showSuccess("New chat session created.");
+      Logger.logDebug(debugOutputChannel, `[Chat] Created new chat session`);
     } catch (error) {
-      handleError(error, "Creating new chat session");
+      VSCodeUtils.handleError(error, "Creating new chat session");
     }
   }
 }

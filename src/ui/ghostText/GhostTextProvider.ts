@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
-import { debugOutputChannel, logDebug } from "./utils";
-import { LLMProviderFactory } from "./llmProvider";
-import { PromptManager } from "./prompts";
-import { ConfigManager } from "./configManager";
+import { Logger, VSCodeUtils, debugOutputChannel } from '../../utils';
+import { LLMProviderFactory } from '../../services/llm/providers/LLMProvider';
+import { PromptManager } from '../../core/Prompts';
+import { ConfigManager } from '../../core/managers/ConfigManager';
 
 export class GhostTextProvider implements vscode.InlineCompletionItemProvider {
   private _isEnabled: boolean = true;
@@ -40,7 +40,7 @@ export class GhostTextProvider implements vscode.InlineCompletionItemProvider {
           const suggestions = await this.generateSuggestions(document, position, context);
           resolve(suggestions);
         } catch (error) {
-          logDebug(debugOutputChannel, "Error generating ghost text suggestions", error);
+          Logger.logDebug(debugOutputChannel, "Error generating ghost text suggestions", error);
           resolve(undefined);
         }
       }, 500); // 500ms debounce
@@ -55,7 +55,7 @@ export class GhostTextProvider implements vscode.InlineCompletionItemProvider {
     const config = this.getConfiguration();
 
     if (!config.apiToken) {
-      logDebug(debugOutputChannel, "Ghost text: No API token configured");
+      Logger.logDebug(debugOutputChannel, "Ghost text: No API token configured");
       return undefined;
     }
 
@@ -66,7 +66,7 @@ export class GhostTextProvider implements vscode.InlineCompletionItemProvider {
 
     // More permissive condition - show suggestions when typing or at end of line
     if (cursorPosition < lineText.length && lineText.trim() === "") {
-      logDebug(debugOutputChannel, "Ghost text: Skipping empty line");
+      Logger.logDebug(debugOutputChannel, "Ghost text: Skipping empty line");
       return undefined;
     }
 
@@ -79,7 +79,7 @@ export class GhostTextProvider implements vscode.InlineCompletionItemProvider {
       !currentWord.includes("[") &&
       !currentWord.includes("{")
     ) {
-      logDebug(
+      Logger.logDebug(
         debugOutputChannel,
         "Ghost text: In middle of word, skipping",
         {
@@ -101,7 +101,7 @@ export class GhostTextProvider implements vscode.InlineCompletionItemProvider {
     const contextString = contextText.join("\n");
     const currentLinePrefix = lineText.substring(0, cursorPosition);
 
-    logDebug(debugOutputChannel, "Ghost text: Generating suggestion", {
+    Logger.logDebug(debugOutputChannel, "Ghost text: Generating suggestion", {
       language: document.languageId,
       currentLine: currentLinePrefix,
       contextLines: contextText.length,
@@ -121,7 +121,7 @@ export class GhostTextProvider implements vscode.InlineCompletionItemProvider {
       const llmResponse = await llmProvider.callLLM(prompt);
       const suggestion = llmResponse.content;
 
-      logDebug(debugOutputChannel, "Ghost text: LLM response received", {
+      Logger.logDebug(debugOutputChannel, "Ghost text: LLM response received", {
         originalSuggestion:
           suggestion?.substring(0, 100) +
           (suggestion && suggestion.length > 100 ? "..." : ""),
@@ -135,7 +135,7 @@ export class GhostTextProvider implements vscode.InlineCompletionItemProvider {
           currentLinePrefix
         );
 
-        logDebug(debugOutputChannel, "Ghost text: Cleaned suggestion", {
+        Logger.logDebug(debugOutputChannel, "Ghost text: Cleaned suggestion", {
           cleanedSuggestion: cleanedSuggestion,
           cleanedLength: cleanedSuggestion.length,
         });
@@ -155,7 +155,7 @@ export class GhostTextProvider implements vscode.InlineCompletionItemProvider {
             // Don't add command - let VS Code handle Tab key naturally
             // This prevents double insertion
 
-            logDebug(
+            Logger.logDebug(
               debugOutputChannel,
               "Ghost text: Returning completion item",
               {
@@ -170,7 +170,7 @@ export class GhostTextProvider implements vscode.InlineCompletionItemProvider {
         }
       }
     } catch (error) {
-      logDebug(
+      Logger.logDebug(
         debugOutputChannel,
         "Error calling LLM for ghost text:",
         error

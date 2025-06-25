@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
-import { ConfigManager } from "../configManager";
-import { SettingsPanelProvider } from "../settingsPanelProvider";
-import { debugOutputChannel, logDebug, handleError } from "../utils";
+import { Logger, VSCodeUtils, debugOutputChannel } from '../utils';
+import { ConfigManager } from '../core/managers/ConfigManager';
+import { SettingsPanelProvider } from '../ui/panels/SettingsPanelProvider';
 
 export class SettingsCommands {
   constructor(
@@ -12,9 +12,9 @@ export class SettingsCommands {
   public async openSettings(): Promise<void> {
     try {
       await vscode.commands.executeCommand("aiReviewer.settingsPanel.focus");
-      logDebug(debugOutputChannel, `[Settings] Opened settings panel`);
+      Logger.logDebug(debugOutputChannel, `[Settings] Opened settings panel`);
     } catch (error) {
-      handleError(error, "Opening settings");
+      VSCodeUtils.handleError(error, "Opening settings");
     }
   }
 
@@ -22,9 +22,9 @@ export class SettingsCommands {
     try {
       await this.configManager.resetToDefaults();
       vscode.window.showInformationMessage("Settings reset to defaults successfully.");
-      logDebug(debugOutputChannel, `[Settings] Reset settings to defaults`);
+      Logger.logDebug(debugOutputChannel, `[Settings] Reset settings to defaults`);
     } catch (error) {
-      handleError(error, "Resetting settings");
+      VSCodeUtils.handleError(error, "Resetting settings");
     }
   }
 
@@ -38,9 +38,9 @@ export class SettingsCommands {
         vscode.window.showWarningMessage("Settings validation failed. Please check your configuration.");
       }
 
-      logDebug(debugOutputChannel, `[Settings] Validated settings`, { isValid: validation.isValid });
+      Logger.logDebug(debugOutputChannel, `[Settings] Validated settings`, { isValid: validation.isValid });
     } catch (error) {
-      handleError(error, "Validating settings");
+      VSCodeUtils.handleError(error, "Validating settings");
     }
   }
 }

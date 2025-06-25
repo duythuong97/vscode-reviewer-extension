@@ -1,17 +1,17 @@
 import * as vscode from "vscode";
-import { ChatPanelProvider } from "./chatPanelProvider";
-import { ReviewPanelProvider } from "./reviewPanelProvider";
-import { ConfigManager } from "./configManager";
-import { PromptManager } from "./prompts";
-import { ChatHistoryManager } from "./chatHistoryManager";
-import { ViolationStorageManager } from "./violationStorageManager";
-import { SettingsPanelProvider } from "./settingsPanelProvider";
-import { ReviewCommands } from "./commands/reviewCommands";
-import { SettingsCommands } from "./commands/settingsCommands";
-import { ChatCommands } from "./commands/chatCommands";
-import { GhostTextCommands } from "./commands/ghostTextCommands";
-import { TemplateCommands } from "./commands/templateCommands";
-import { UtilityCommands } from "./commands/utilityCommands";
+import { ChatPanelProvider } from "../ui/panels/ChatPanelProvider";
+import { ReviewPanelProvider } from "../ui/panels/ReviewPanelProvider";
+import { ConfigManager } from "../core/managers/ConfigManager";
+import { PromptManager } from "../core/Prompts";
+import { ChatHistoryManager } from "../core/managers/ChatHistoryManager";
+import { ViolationStorageManager } from "../services/storage/managers/ViolationStorageManager";
+import { SettingsPanelProvider } from "../ui/panels/SettingsPanelProvider";
+import { ReviewCommands } from "./reviewCommands";
+import { SettingsCommands } from "./settingsCommands";
+import { ChatCommands } from "./chatCommands";
+import { GhostTextCommands } from "./ghostTextCommands";
+import { TemplateCommands } from "./templateCommands";
+import { UtilityCommands } from "./utilityCommands";
 
 export class CommandManager {
   private static instance: CommandManager;

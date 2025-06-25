@@ -1,16 +1,16 @@
 import * as vscode from "vscode";
-import { WorkspaceFileTemplate } from "./workspaceFileTemplate";
-import { showSuccess } from "./utils";
+import { WorkspaceFileTemplate } from "../workspaceFileTemplate";
+import { VSCodeUtils } from "../../utils";
 
 export interface AIReviewerConfig {
   // Authentication
-  authType: 'token' | 'cookie';
+  authType: "token" | "cookie";
   apiToken: string;
   cookie: string;
 
   // LLM Configuration
   llmEndpoint: string;
-  providerType: 'ollama' | 'openai';
+  providerType: "ollama" | "openai";
   llmModel: string;
   maxTokens: number;
   temperature: number;
@@ -18,9 +18,9 @@ export interface AIReviewerConfig {
   // Review Settings
   codingConvention: string;
   baseBranch: string;
-  suggestionDisplayMode: 'panel' | 'inline';
+  suggestionDisplayMode: "panel" | "inline";
   autoReview: boolean;
-  severityThreshold: 'low' | 'medium' | 'high';
+  severityThreshold: "low" | "medium" | "high";
   includeSuggestions: boolean;
 
   // UI Settings
@@ -56,23 +56,37 @@ export class ConfigManager {
 
     return {
       // Authentication
-      authType: this.config.get<'token' | 'cookie'>("authType", "token"),
+      authType: this.config.get<"token" | "cookie">("authType", "token"),
       apiToken: this.config.get<string>("apiToken", ""),
       cookie: this.config.get<string>("cookie", ""),
 
       // LLM Configuration
-      llmEndpoint: this.config.get<string>("llmEndpoint", "http://localhost:11434/api/generate"),
-      providerType: this.config.get<'ollama' | 'openai'>("providerType", "ollama"),
+      llmEndpoint: this.config.get<string>(
+        "llmEndpoint",
+        "http://localhost:11434/api/generate"
+      ),
+      providerType: this.config.get<"ollama" | "openai">(
+        "providerType",
+        "ollama"
+      ),
       llmModel: this.config.get<string>("llmModel", "llama3"),
       maxTokens: this.config.get<number>("maxTokens", 2000),
       temperature: this.config.get<number>("temperature", 0.7),
 
       // Review Settings
-      codingConvention: this.workspaceFileTemplate.readFile(".vscode/ai-reviewer-coding-convention.md"),
+      codingConvention: this.workspaceFileTemplate.readFile(
+        ".vscode/ai-reviewer-coding-convention.md"
+      ),
       baseBranch: this.config.get<string>("baseBranch", "main"),
-      suggestionDisplayMode: this.config.get<'panel' | 'inline'>("suggestionDisplayMode", "panel"),
+      suggestionDisplayMode: this.config.get<"panel" | "inline">(
+        "suggestionDisplayMode",
+        "panel"
+      ),
       autoReview: this.config.get<boolean>("autoReview", false),
-      severityThreshold: this.config.get<'low' | 'medium' | 'high'>("severityThreshold", "medium"),
+      severityThreshold: this.config.get<"low" | "medium" | "high">(
+        "severityThreshold",
+        "medium"
+      ),
       includeSuggestions: this.config.get<boolean>("includeSuggestions", true),
 
       // UI Settings
@@ -82,7 +96,9 @@ export class ConfigManager {
 
       // Advanced Settings
       debugMode: this.config.get<boolean>("debugMode", false),
-      customPrompt: this.workspaceFileTemplate.readFile(".vscode/ai-reviewer-custom-prompt.md")
+      customPrompt: this.workspaceFileTemplate.readFile(
+        ".vscode/ai-reviewer-custom-prompt.md"
+      ),
     };
   }
 
@@ -92,9 +108,15 @@ export class ConfigManager {
     for (const [key, value] of Object.entries(updates)) {
       console.log(`Updating setting: ${key} = ${value}`);
       if (key === "codingConvention") {
-        this.workspaceFileTemplate.writeFile(".vscode/ai-reviewer-coding-convention.md", value as string);
+        this.workspaceFileTemplate.writeFile(
+          ".vscode/ai-reviewer-coding-convention.md",
+          value as string
+        );
       } else if (key === "customPrompt") {
-        this.workspaceFileTemplate.writeFile(".vscode/ai-reviewer-custom-prompt.md", value as string);
+        this.workspaceFileTemplate.writeFile(
+          ".vscode/ai-reviewer-custom-prompt.md",
+          value as string
+        );
       } else {
         await this.config.update(key, value, vscode.ConfigurationTarget.Global);
         console.log(`Updated VS Code setting: ${key} = ${value}`);
@@ -106,7 +128,7 @@ export class ConfigManager {
     console.log("Configuration refreshed");
 
     // Show success message
-    showSuccess("Settings saved successfully!");
+    VSCodeUtils.showSuccess("Settings saved successfully!");
   }
 
   public refreshConfig(): void {
@@ -126,7 +148,9 @@ export class ConfigManager {
       llmModel: "llama3",
       maxTokens: 2000,
       temperature: 0.7,
-      codingConvention: this.workspaceFileTemplate.readFile(".vscode/ai-reviewer-coding-convention.md"),
+      codingConvention: this.workspaceFileTemplate.readFile(
+        ".vscode/ai-reviewer-coding-convention.md"
+      ),
       baseBranch: "main",
       suggestionDisplayMode: "panel",
       autoReview: false,
@@ -136,19 +160,21 @@ export class ConfigManager {
       themeAware: true,
       ghostTextEnabled: true,
       debugMode: false,
-      customPrompt: this.workspaceFileTemplate.readFile(".vscode/ai-reviewer-custom-prompt.md")
+      customPrompt: this.workspaceFileTemplate.readFile(
+        ".vscode/ai-reviewer-custom-prompt.md"
+      ),
     };
     await this.updateConfig(defaultConfig);
 
     // Show success message for reset
-    showSuccess("Settings reset to defaults successfully!");
+    VSCodeUtils.showSuccess("Settings reset to defaults successfully!");
   }
 
   public validateConfig(): { isValid: boolean; errors: string[] } {
     const config = this.getConfig();
     const errors: string[] = [];
 
-    if (config.authType === 'cookie') {
+    if (config.authType === "cookie") {
       if (!config.cookie) {
         errors.push("Cookie is required for cookie-based authentication");
       }
@@ -172,7 +198,7 @@ export class ConfigManager {
 
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
     };
   }
 
@@ -185,7 +211,7 @@ export class ConfigManager {
       maxTokens: config.maxTokens,
       temperature: config.temperature,
       cookie: config.cookie,
-      authType: config.authType
+      authType: config.authType,
     };
   }
 
@@ -197,7 +223,7 @@ export class ConfigManager {
       suggestionDisplayMode: config.suggestionDisplayMode,
       autoReview: config.autoReview,
       severityThreshold: config.severityThreshold,
-      includeSuggestions: config.includeSuggestions
+      includeSuggestions: config.includeSuggestions,
     };
   }
 
@@ -206,7 +232,7 @@ export class ConfigManager {
     return {
       showNotifications: config.showNotifications,
       themeAware: config.themeAware,
-      ghostTextEnabled: config.ghostTextEnabled
+      ghostTextEnabled: config.ghostTextEnabled,
     };
   }
 
@@ -220,7 +246,7 @@ export class ConfigManager {
       codeReview: ".vscode/ai-reviewer-code-review-prompt.md",
       ghostText: ".vscode/ai-reviewer-ghost-text-prompt.md",
       codingConvention: ".vscode/ai-reviewer-coding-convention.md",
-      customPrompt: ".vscode/ai-reviewer-custom-prompt.md"
+      customPrompt: ".vscode/ai-reviewer-custom-prompt.md",
     };
   }
 }

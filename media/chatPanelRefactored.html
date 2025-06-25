@@ -462,7 +462,9 @@
           processedContent = content.replace(
             /<pre><code>([\s\S]*?)<\/code><\/pre>/g,
             (match, codeContent) => {
-              const encodedCode = btoa(unescape(encodeURIComponent(codeContent)));
+              const encodedCode = btoa(
+                unescape(encodeURIComponent(codeContent))
+              );
               return `
                 <div class="code-block-header">
                   <span>Code</span>
@@ -521,67 +523,22 @@
       // Message handlers
       function handleReviewResults(reviewData, fileName) {
         // This function is deprecated - review results are now handled by ReviewPanelProvider
-        console.warn("handleReviewResults is deprecated. Review results should be displayed in Review Panel.");
+        console.warn(
+          "handleReviewResults is deprecated. Review results should be displayed in Review Panel."
+        );
       }
 
       function handleSavedReviewResult(result) {
         // This function is deprecated - review results are now handled by ReviewPanelProvider
-        console.warn("handleSavedReviewResult is deprecated. Review results should be displayed in Review Panel.");
+        console.warn(
+          "handleSavedReviewResult is deprecated. Review results should be displayed in Review Panel."
+        );
       }
 
       // Utility functions
       function clearReviewHistory() {
         vscode.postMessage({
           type: "clearReviewHistory",
-        });
-      }
-
-      function completeReview(fileName) {
-        // This function is deprecated - review actions should be handled by ReviewPanelProvider
-        console.warn("completeReview is deprecated. Review actions should be handled by Review Panel.");
-      }
-
-      function reReviewWithFeedback(fileName) {
-        vscode.postMessage({
-          type: "reReviewWithFeedback",
-          fileName: fileName,
-        });
-      }
-
-      function openFile(fileName) {
-        vscode.postMessage({
-          type: "openFile",
-          fileName: fileName,
-        });
-      }
-
-      function approveViolation(reviewId, violationIndex, fileName) {
-        vscode.postMessage({
-          type: "updateViolationStatus",
-          reviewId: reviewId,
-          violationIndex: violationIndex,
-          status: "approved",
-          fileName: fileName,
-        });
-      }
-
-      function rejectViolation(reviewId, violationIndex, fileName) {
-        vscode.postMessage({
-          type: "updateViolationStatus",
-          reviewId: reviewId,
-          violationIndex: violationIndex,
-          status: "rejected",
-          fileName: fileName,
-        });
-      }
-
-      function applyCodeChange(fileName, lineNumber, newCode, originalCode) {
-        vscode.postMessage({
-          type: "applyCodeChange",
-          fileName: fileName,
-          lineNumber: lineNumber,
-          newCode: newCode,
-          originalCode: originalCode,
         });
       }
 
@@ -600,45 +557,51 @@
       }
 
       function copyCode(code) {
-        console.log('[ChatPanel] Copying code, length:', code?.length);
+        console.log("[ChatPanel] Copying code, length:", code?.length);
 
         if (!code) {
-          console.error('[ChatPanel] No code to copy');
+          console.error("[ChatPanel] No code to copy");
           return;
         }
 
-        navigator.clipboard.writeText(code).then(() => {
-          console.log('[ChatPanel] Code copied to clipboard successfully');
-          // Show a brief success message
-          const button = event.target;
-          const originalText = button.textContent;
-          button.textContent = '✅ Copied!';
-          button.style.background = '#44aa44';
-          setTimeout(() => {
-            button.textContent = originalText;
-            button.style.background = '';
-          }, 1000);
-        }).catch(err => {
-          console.error('[ChatPanel] Failed to copy code:', err);
-          // Fallback: try to copy using document.execCommand
-          try {
-            const textArea = document.createElement('textarea');
-            textArea.value = code;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            console.log('[ChatPanel] Code copied using fallback method');
-          } catch (fallbackErr) {
-            console.error('[ChatPanel] Fallback copy also failed:', fallbackErr);
-          }
-        });
+        navigator.clipboard
+          .writeText(code)
+          .then(() => {
+            console.log("[ChatPanel] Code copied to clipboard successfully");
+            // Show a brief success message
+            const button = event.target;
+            const originalText = button.textContent;
+            button.textContent = "✅ Copied!";
+            button.style.background = "#44aa44";
+            setTimeout(() => {
+              button.textContent = originalText;
+              button.style.background = "";
+            }, 1000);
+          })
+          .catch((err) => {
+            console.error("[ChatPanel] Failed to copy code:", err);
+            // Fallback: try to copy using document.execCommand
+            try {
+              const textArea = document.createElement("textarea");
+              textArea.value = code;
+              document.body.appendChild(textArea);
+              textArea.select();
+              document.execCommand("copy");
+              document.body.removeChild(textArea);
+              console.log("[ChatPanel] Code copied using fallback method");
+            } catch (fallbackErr) {
+              console.error(
+                "[ChatPanel] Fallback copy also failed:",
+                fallbackErr
+              );
+            }
+          });
       }
 
       function clearChatHistory() {
-        console.log('[ChatPanel] Clearing chat history');
+        console.log("[ChatPanel] Clearing chat history");
         vscode.postMessage({
-          type: "clearChatHistory"
+          type: "clearChatHistory",
         });
       }
 
@@ -695,15 +658,15 @@
         });
 
         // Add event listener for copy buttons
-        document.addEventListener('click', function(event) {
-          if (event.target.classList.contains('copy-code-btn')) {
-            const encodedCode = event.target.getAttribute('data-code');
+        document.addEventListener("click", function (event) {
+          if (event.target.classList.contains("copy-code-btn")) {
+            const encodedCode = event.target.getAttribute("data-code");
             if (encodedCode) {
               try {
                 const code = decodeURIComponent(escape(atob(encodedCode)));
                 copyCode(code);
               } catch (error) {
-                console.error('Error decoding code:', error);
+                console.error("Error decoding code:", error);
                 copyCode(encodedCode); // Fallback to encoded code
               }
             }
@@ -756,7 +719,9 @@
 
           case "reviewResults":
             // This case is deprecated - review results are now handled by ReviewPanelProvider
-            console.warn("reviewResults case is deprecated. Review results should be handled by Review Panel.");
+            console.warn(
+              "reviewResults case is deprecated. Review results should be handled by Review Panel."
+            );
             break;
 
           case "loadChatHistory":
@@ -830,7 +795,8 @@
             break;
 
           case "clearChatHistory":
-            const chatMessagesContainer = document.getElementById("messagesContainer");
+            const chatMessagesContainer =
+              document.getElementById("messagesContainer");
             chatMessagesContainer.innerHTML = "";
             break;
         }
