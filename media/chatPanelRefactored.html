@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Reviewer Chat Panel</title>
+    <style>
+      /* Reset and base styles */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: var(--vscode-font-family);
+        font-size: var(--vscode-font-size);
+        color: var(--vscode-foreground);
+        background-color: var(--vscode-editor-background);
+        line-height: 1.4;
+      }
+
+      /* Chat container */
+      .chat-container {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        max-width: 100%;
+        margin: 0 auto;
+        padding: 16px;
+        background-color: var(--vscode-editor-background);
+      }
+
+      /* Chat header */
+      .chat-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--vscode-input-border);
+      }
+
+      .chat-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--vscode-foreground);
+      }
+
+      .clear-history-btn {
+        background: linear-gradient(135deg, #ff5e57 0%, #ff9500 100%);
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+      }
+      .clear-history-btn:hover {
+        background: linear-gradient(135deg, #ff9500 0%, #ff5e57 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+      }
+
+      /* Code chip */
+      .code-chip {
+        background: var(--vscode-textBlockQuote-background);
+        border: 1px solid var(--vscode-textBlockQuote-border);
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin-bottom: 12px;
+        font-size: 12px;
+        color: var(--vscode-textBlockQuote-foreground);
+        display: none;
+      }
+
+      /* Code controls */
+      .code-controls {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+
+      /* Messages container */
+      .messages-container {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      /* Message styles */
+      .message {
+        display: flex;
+        flex-direction: column;
+        max-width: 100%;
+      }
+
+      .message.user {
+        align-items: flex-end;
+      }
+
+      .message.ai {
+        align-items: flex-start;
+      }
+
+      .message-bubble {
+        background: var(--vscode-textBlockQuote-background);
+        border: 1px solid var(--vscode-textBlockQuote-border);
+        border-radius: 12px;
+        padding: 12px 16px;
+        max-width: 85%;
+        word-wrap: break-word;
+        white-space: pre-wrap;
+      }
+
+      .message.user .message-bubble {
+        background: var(--vscode-button-background);
+        color: var(--vscode-button-foreground);
+        border-color: var(--vscode-button-border);
+      }
+
+      .message.ai .message-bubble {
+        background: var(--vscode-textBlockQuote-background);
+        color: var(--vscode-textBlockQuote-foreground);
+      }
+
+      .message-time {
+        font-size: 11px;
+        color: var(--vscode-descriptionForeground);
+        margin-top: 4px;
+        opacity: 0.8;
+      }
+
+      /* Typing indicator */
+      .typing-indicator {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        background: var(--vscode-textBlockQuote-background);
+        border-radius: 12px;
+        margin-bottom: 16px;
+        font-size: 14px;
+        color: var(--vscode-descriptionForeground);
+      }
+
+      .typing-dots {
+        display: flex;
+        gap: 4px;
+      }
+
+      .typing-dot {
+        width: 6px;
+        height: 6px;
+        background: var(--vscode-descriptionForeground);
+        border-radius: 50%;
+        animation: typing 1.4s infinite ease-in-out;
+      }
+
+      .typing-dot:nth-child(1) {
+        animation-delay: -0.32s;
+      }
+      .typing-dot:nth-child(2) {
+        animation-delay: -0.16s;
+      }
+
+      @keyframes typing {
+        0%,
+        80%,
+        100% {
+          transform: scale(0.8);
+          opacity: 0.5;
+        }
+        40% {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+
+      /* Input container */
+      .input-container {
+        margin-top: auto;
+        padding-top: 16px;
+        border-top: 1px solid var(--vscode-input-border);
+      }
+
+      .message-input {
+        width: 100%;
+        min-height: 60px;
+        max-height: 120px;
+        padding: 12px;
+        border: 1px solid var(--vscode-input-border);
+        border-radius: 8px;
+        background: var(--vscode-input-background);
+        color: var(--vscode-input-foreground);
+        font-family: inherit;
+        font-size: inherit;
+        resize: vertical;
+        outline: none;
+        margin-bottom: 12px;
+      }
+
+      .message-input:focus {
+        border-color: var(--vscode-focusBorder);
+      }
+
+      /* Buttons */
+      .send-button {
+        background: var(--vscode-button-background);
+        color: var(--vscode-button-foreground);
+        border: 1px solid var(--vscode-button-border);
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+      }
+
+      .send-button:hover {
+        background: var(--vscode-button-hoverBackground);
+      }
+
+      .send-button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .cancel-button {
+        background: var(--vscode-button-secondaryBackground);
+        color: var(--vscode-button-secondaryForeground);
+        border: 1px solid var(--vscode-button-secondaryBorder);
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+      }
+
+      .cancel-button:hover {
+        background: var(--vscode-button-secondaryHoverBackground);
+      }
+
+      /* Error styles */
+      .error {
+        background: var(--vscode-errorBackground);
+        color: var(--vscode-errorForeground);
+        border: 1px solid var(--vscode-errorBorder);
+        border-radius: 6px;
+        padding: 12px;
+        margin: 8px 0;
+        font-size: 13px;
+      }
+
+      /* Code blocks */
+      pre {
+        background: var(--vscode-textBlockQuote-background);
+        border: 1px solid var(--vscode-textBlockQuote-border);
+        border-radius: 8px;
+        padding: 12px;
+        margin: 8px 0;
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 300px;
+        font-family: var(--vscode-editor-font-family);
+        font-size: var(--vscode-editor-font-size);
+        line-height: 1.4;
+        position: relative;
+        white-space: pre;
+        word-wrap: normal;
+        word-break: normal;
+        tab-size: 4;
+      }
+
+      pre code {
+        background: transparent;
+        border: none;
+        padding: 0;
+        margin: 0;
+        font-family: inherit;
+        font-size: inherit;
+        color: var(--vscode-editor-foreground);
+        white-space: pre;
+        word-wrap: normal;
+        word-break: normal;
+        display: block;
+        min-width: max-content;
+      }
+
+      /* Inline code */
+      code:not(pre code) {
+        background: var(--vscode-textBlockQuote-background);
+        border: 1px solid var(--vscode-textBlockQuote-border);
+        border-radius: 4px;
+        padding: 2px 6px;
+        font-family: var(--vscode-editor-font-family);
+        font-size: 0.9em;
+        color: var(--vscode-editor-foreground);
+      }
+
+      /* Scrollbar styling for code blocks */
+      pre::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+
+      pre::-webkit-scrollbar-track {
+        background: var(--vscode-scrollbarSlider-background);
+        border-radius: 4px;
+      }
+
+      pre::-webkit-scrollbar-thumb {
+        background: var(--vscode-scrollbarSlider-activeBackground);
+        border-radius: 4px;
+      }
+
+      pre::-webkit-scrollbar-thumb:hover {
+        background: var(--vscode-scrollbarSlider-hoverBackground);
+      }
+
+      /* Code block header */
+      .code-block-header {
+        background: var(--vscode-textBlockQuote-background);
+        border: 1px solid var(--vscode-textBlockQuote-border);
+        border-bottom: none;
+        border-radius: 8px 8px 0 0;
+        padding: 8px 12px;
+        font-size: 11px;
+        color: var(--vscode-descriptionForeground);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .code-block-header + pre {
+        border-radius: 0 0 8px 8px;
+        margin-top: 0;
+      }
+
+      /* Copy button */
+      .copy-code-btn {
+        background: var(--vscode-button-background) !important;
+        color: var(--vscode-button-foreground) !important;
+        border: 1px solid var(--vscode-button-border) !important;
+        padding: 4px 8px !important;
+        border-radius: 4px !important;
+        cursor: pointer !important;
+        font-size: 10px !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease !important;
+        margin: 0 !important;
+        display: inline-block !important;
+        text-decoration: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+      }
+
+      .copy-code-btn:hover {
+        background: var(--vscode-button-hoverBackground) !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+      }
+
+      .copy-code-btn:active {
+        transform: translateY(0) !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="chat-container">
+      <div class="chat-header">
+        <h2 class="chat-title">💬 AI Chat</h2>
+        <button class="clear-history-btn" onclick="clearChatHistory()">
+          🗑️ Clear Chat
+        </button>
+      </div>
+
+      <div id="codeChip" class="code-chip"></div>
+
+      <div class="code-controls">
+        <button
+          id="addCodeButton"
+          class="send-button"
+          style="font-size: 11px; padding: 4px 8px"
+          onclick="addCodeSelection()"
+        >
+          Add Selection (Ctrl+Shift+A)
+        </button>
+        <button
+          id="clearCodeButton"
+          class="send-button"
+          style="font-size: 11px; padding: 4px 8px; display: none"
+          onclick="clearCodeSelections()"
+        >
+          Clear All (Ctrl+Shift+C)
+        </button>
+      </div>
+
+      <div id="messagesContainer" class="messages-container">
+        <!-- Messages will be injected here -->
+      </div>
+
+      <div id="typingIndicator" class="typing-indicator">
+        <div class="typing-dots">
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+        </div>
+        <span>AI is thinking...</span>
+      </div>
+
+      <div class="input-container">
+        <textarea
+          id="messageInput"
+          class="message-input"
+          placeholder="Type your message here..."
+        ></textarea>
+        <div style="display: flex; gap: 8px; justify-content: flex-end">
+          <button id="cancelButton" class="cancel-button">Cancel</button>
+          <button id="sendButton" class="send-button">Send Message</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const vscode = acquireVsCodeApi();
+      let codeSelections = [];
+      let accumulatedText = "";
+
+      // Core functions
+      function showTypingIndicator() {
+        document.getElementById("typingIndicator").style.display = "flex";
+      }
+
+      function hideTypingIndicator() {
+        document.getElementById("typingIndicator").style.display = "none";
+      }
+
+      function addMessage(content, isUser = false, isStreaming = false) {
+        const messagesContainer = document.getElementById("messagesContainer");
+        const timestamp = new Date().toLocaleTimeString();
+
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${isUser ? "user" : "ai"}`;
+
+        const bubbleDiv = document.createElement("div");
+        bubbleDiv.className = "message-bubble";
+
+        // Process content to add copy buttons to code blocks
+        let processedContent = content;
+        if (!isUser) {
+          // Add copy buttons to code blocks
+          processedContent = content.replace(
+            /<pre><code>([\s\S]*?)<\/code><\/pre>/g,
+            (match, codeContent) => {
+              const encodedCode = btoa(unescape(encodeURIComponent(codeContent)));
+              return `
+                <div class="code-block-header">
+                  <span>Code</span>
+                  <button class="copy-code-btn" data-code="${encodedCode}">
+                    📋 Copy
+                  </button>
+                </div>
+                <pre><code>${codeContent}</code></pre>
+              `;
+            }
+          );
+        }
+
+        bubbleDiv.innerHTML = processedContent;
+
+        const timeDiv = document.createElement("div");
+        timeDiv.className = "message-time";
+        timeDiv.textContent = timestamp;
+
+        messageDiv.appendChild(bubbleDiv);
+        messageDiv.appendChild(timeDiv);
+
+        if (isStreaming) {
+          // Replace existing streaming message
+          const existingStreaming =
+            messagesContainer.querySelector(".streaming-message");
+          if (existingStreaming) {
+            existingStreaming.remove();
+          }
+          messageDiv.classList.add("streaming-message");
+        }
+
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+
+      function updateCodeChip() {
+        const codeChip = document.getElementById("codeChip");
+        const clearButton = document.getElementById("clearCodeButton");
+
+        if (codeSelections.length > 0) {
+          const totalLines = codeSelections.reduce(
+            (sum, selection) =>
+              sum + (selection.lineEnd - selection.lineStart + 1),
+            0
+          );
+          codeChip.textContent = `${codeSelections.length} selection(s) - ${totalLines} total lines`;
+          codeChip.style.display = "block";
+          clearButton.style.display = "block";
+        } else {
+          codeChip.style.display = "none";
+          clearButton.style.display = "none";
+        }
+      }
+
+      // Message handlers
+      function handleReviewResults(reviewData, fileName) {
+        // This function is deprecated - review results are now handled by ReviewPanelProvider
+        console.warn("handleReviewResults is deprecated. Review results should be displayed in Review Panel.");
+      }
+
+      function handleSavedReviewResult(result) {
+        // This function is deprecated - review results are now handled by ReviewPanelProvider
+        console.warn("handleSavedReviewResult is deprecated. Review results should be displayed in Review Panel.");
+      }
+
+      // Utility functions
+      function clearReviewHistory() {
+        vscode.postMessage({
+          type: "clearReviewHistory",
+        });
+      }
+
+      function completeReview(fileName) {
+        // This function is deprecated - review actions should be handled by ReviewPanelProvider
+        console.warn("completeReview is deprecated. Review actions should be handled by Review Panel.");
+      }
+
+      function reReviewWithFeedback(fileName) {
+        vscode.postMessage({
+          type: "reReviewWithFeedback",
+          fileName: fileName,
+        });
+      }
+
+      function openFile(fileName) {
+        vscode.postMessage({
+          type: "openFile",
+          fileName: fileName,
+        });
+      }
+
+      function approveViolation(reviewId, violationIndex, fileName) {
+        vscode.postMessage({
+          type: "updateViolationStatus",
+          reviewId: reviewId,
+          violationIndex: violationIndex,
+          status: "approved",
+          fileName: fileName,
+        });
+      }
+
+      function rejectViolation(reviewId, violationIndex, fileName) {
+        vscode.postMessage({
+          type: "updateViolationStatus",
+          reviewId: reviewId,
+          violationIndex: violationIndex,
+          status: "rejected",
+          fileName: fileName,
+        });
+      }
+
+      function applyCodeChange(fileName, lineNumber, newCode, originalCode) {
+        vscode.postMessage({
+          type: "applyCodeChange",
+          fileName: fileName,
+          lineNumber: lineNumber,
+          newCode: newCode,
+          originalCode: originalCode,
+        });
+      }
+
+      function addCodeSelection() {
+        vscode.postMessage({
+          type: "addCodeSelection",
+        });
+      }
+
+      function clearCodeSelections() {
+        codeSelections = [];
+        updateCodeChip();
+        vscode.postMessage({
+          type: "clearCodeSelections",
+        });
+      }
+
+      function copyCode(code) {
+        console.log('[ChatPanel] Copying code, length:', code?.length);
+
+        if (!code) {
+          console.error('[ChatPanel] No code to copy');
+          return;
+        }
+
+        navigator.clipboard.writeText(code).then(() => {
+          console.log('[ChatPanel] Code copied to clipboard successfully');
+          // Show a brief success message
+          const button = event.target;
+          const originalText = button.textContent;
+          button.textContent = '✅ Copied!';
+          button.style.background = '#44aa44';
+          setTimeout(() => {
+            button.textContent = originalText;
+            button.style.background = '';
+          }, 1000);
+        }).catch(err => {
+          console.error('[ChatPanel] Failed to copy code:', err);
+          // Fallback: try to copy using document.execCommand
+          try {
+            const textArea = document.createElement('textarea');
+            textArea.value = code;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            console.log('[ChatPanel] Code copied using fallback method');
+          } catch (fallbackErr) {
+            console.error('[ChatPanel] Fallback copy also failed:', fallbackErr);
+          }
+        });
+      }
+
+      function clearChatHistory() {
+        console.log('[ChatPanel] Clearing chat history');
+        vscode.postMessage({
+          type: "clearChatHistory"
+        });
+      }
+
+      // Event listeners
+      document.addEventListener("DOMContentLoaded", function () {
+        const sendButton = document.getElementById("sendButton");
+        const messageInput = document.getElementById("messageInput");
+        const cancelButton = document.getElementById("cancelButton");
+        const clearCodeButton = document.getElementById("clearCodeButton");
+
+        // Notify extension that webview is ready
+        vscode.postMessage({
+          type: "webviewReady",
+        });
+
+        // Send message on button click
+        sendButton.addEventListener("click", function () {
+          const message = messageInput.value.trim();
+          if (message) {
+            addMessage(message, true);
+            vscode.postMessage({
+              type: "sendMessage",
+              message: message,
+              codeSelections: codeSelections,
+            });
+            messageInput.value = "";
+            sendButton.disabled = true;
+            sendButton.textContent = "Sending...";
+            showTypingIndicator();
+          }
+        });
+
+        // Send message on Enter key (but allow Shift+Enter for new lines)
+        messageInput.addEventListener("keydown", function (event) {
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            sendButton.click();
+          }
+        });
+
+        // Cancel button
+        cancelButton.addEventListener("click", function () {
+          vscode.postMessage({
+            type: "cancelStreaming",
+          });
+          hideTypingIndicator();
+          sendButton.disabled = false;
+          sendButton.textContent = "Send Message";
+        });
+
+        // Clear code selections
+        clearCodeButton.addEventListener("click", function () {
+          clearCodeSelections();
+        });
+
+        // Add event listener for copy buttons
+        document.addEventListener('click', function(event) {
+          if (event.target.classList.contains('copy-code-btn')) {
+            const encodedCode = event.target.getAttribute('data-code');
+            if (encodedCode) {
+              try {
+                const code = decodeURIComponent(escape(atob(encodedCode)));
+                copyCode(code);
+              } catch (error) {
+                console.error('Error decoding code:', error);
+                copyCode(encodedCode); // Fallback to encoded code
+              }
+            }
+          }
+        });
+
+        // Auto-resize textarea
+        messageInput.addEventListener("input", function () {
+          this.style.height = "auto";
+          this.style.height = Math.min(this.scrollHeight, 120) + "px";
+        });
+
+        // Initial setup
+        updateCodeChip();
+      });
+
+      // Message listener
+      window.addEventListener("message", (event) => {
+        const message = event.data;
+
+        switch (message.type) {
+          case "addMessage":
+            addMessage(message.content, message.isUser, message.isStreaming);
+            break;
+
+          case "startStreaming":
+            // Handle start of streaming response
+            showTypingIndicator();
+            break;
+
+          case "streamChunk":
+            if (message.isHtml) {
+              addMessage(message.chunk, false, true);
+            }
+            break;
+
+          case "streamComplete":
+            hideTypingIndicator();
+            const sendButton = document.getElementById("sendButton");
+            sendButton.disabled = false;
+            sendButton.textContent = "Send Message";
+            break;
+
+          case "streamCancelled":
+            hideTypingIndicator();
+            const sendBtn = document.getElementById("sendButton");
+            sendBtn.disabled = false;
+            sendBtn.textContent = "Send Message";
+            break;
+
+          case "reviewResults":
+            // This case is deprecated - review results are now handled by ReviewPanelProvider
+            console.warn("reviewResults case is deprecated. Review results should be handled by Review Panel.");
+            break;
+
+          case "loadChatHistory":
+            // Clear existing messages
+            const messagesContainer =
+              document.getElementById("messagesContainer");
+            messagesContainer.innerHTML = "";
+
+            // Load chat history only
+            if (message.history && message.history.messages) {
+              message.history.messages.forEach((msg) => {
+                addMessage(msg.content, msg.isUser);
+              });
+            }
+            break;
+
+          case "clearChatPanel":
+            const container = document.getElementById("messagesContainer");
+            container.innerHTML = "";
+            break;
+
+          case "codeSelectionAdded":
+            if (message.selection) {
+              codeSelections.push(message.selection);
+              updateCodeChip();
+            }
+            break;
+
+          case "codeSelectionsCleared":
+            codeSelections = [];
+            updateCodeChip();
+            break;
+
+          case "selectedCode":
+            // Handle selected code updates
+            break;
+
+          case "applySuccess":
+            console.log(
+              `Successfully applied code change to ${message.fileName} line ${message.lineNumber}`
+            );
+            break;
+
+          case "applyError":
+            console.error("Apply error:", message.message);
+            break;
+
+          case "violationStatusUpdated":
+            console.log(
+              `Violation status updated: ${message.reviewId}[${message.violationIndex}] -> ${message.status}`
+            );
+            break;
+
+          case "violationStatusUpdateSuccess":
+            console.log(
+              `Violation status update successful: ${message.reviewId}[${message.violationIndex}] -> ${message.status}`
+            );
+            break;
+
+          case "violationStatusUpdateError":
+            console.error("Violation status update error:", message.message);
+            break;
+
+          case "showMessage":
+            // Show notification message
+            console.log(`${message.level}: ${message.message}`);
+            break;
+
+          case "error":
+            addMessage(`<div class="error">${message.content}</div>`, false);
+            break;
+
+          case "clearChatHistory":
+            const chatMessagesContainer = document.getElementById("messagesContainer");
+            chatMessagesContainer.innerHTML = "";
+            break;
+        }
+      });
+    </script>
+  </body>
+</html>

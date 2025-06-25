@@ -170,6 +170,11 @@
           "id": "aiReviewer.chatPanel",
           "name": "Chat",
           "type": "webview"
+        },
+        {
+          "id": "aiReviewer.reviewPanel",
+          "name": "Review Panel",
+          "type": "webview"
         }
       ]
     },
@@ -236,10 +241,6 @@
         "title": "AI Reviewer: Show Right Panel"
       },
       {
-        "command": "ai-reviewer.showReviewResultsInChat",
-        "title": "AI Reviewer: Show Review Results in Chat"
-      },
-      {
         "command": "aiReviewer.chatPanel.focus",
         "title": "Focus AI Reviewer Chat Panel"
       },
@@ -258,6 +259,14 @@
       {
         "command": "ai-reviewer.showLLMStatus",
         "title": "AI Reviewer: Show LLM Connection Status"
+      },
+      {
+        "command": "ai-reviewer.clearSavedViolations",
+        "title": "AI Reviewer: Clear Saved Review Violations"
+      },
+      {
+        "command": "ai-reviewer.reReviewWithFeedback",
+        "title": "AI Reviewer: Re-review with Feedback"
       },
       {
         "command": "ai-reviewer.debugChatHistory",

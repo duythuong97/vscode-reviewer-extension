@@ -116,7 +116,10 @@ export class OllamaLLMProvider extends BaseLLMProvider {
       },
       async (progress, cancellationToken) => {
         try {
-          logDebug(debugOutputChannel, `[LLM] Starting request to ${this.config.endpoint}`);
+          logDebug(
+            debugOutputChannel,
+            `[LLM] Starting request to ${this.config.endpoint}`
+          );
           progress.report({ message: "Connecting to LLM..." });
 
           const requestBody = {
@@ -130,7 +133,7 @@ export class OllamaLLMProvider extends BaseLLMProvider {
           };
 
           progress.report({ message: "Sending request..." });
-          logDebug(debugOutputChannel, `[LLM] Request body:`, { model: this.config.model, promptLength: prompt.length });
+          logDebug(debugOutputChannel, `[LLM] Request body:`, requestBody);
 
           const response = await fetch(this.config.endpoint, {
             method: "POST",
@@ -142,10 +145,14 @@ export class OllamaLLMProvider extends BaseLLMProvider {
 
           if (response.ok) {
             const data = (await response.json()) as any;
-            logDebug(debugOutputChannel, `[LLM] Response received successfully`, {
-              responseLength: data?.response?.length || 0,
-              usage: data.usage
-            });
+            logDebug(
+              debugOutputChannel,
+              `[LLM] Response received successfully`,
+              {
+                responseLength: data?.response?.length || 0,
+                usage: data.usage,
+              }
+            );
 
             progress.report({ message: "Response processed successfully" });
 
@@ -156,7 +163,11 @@ export class OllamaLLMProvider extends BaseLLMProvider {
           }
 
           const errorText = await response.text();
-          logDebug(debugOutputChannel, `[LLM] API Error: ${response.status} - ${response.statusText}`, errorText);
+          logDebug(
+            debugOutputChannel,
+            `[LLM] API Error: ${response.status} - ${response.statusText}`,
+            errorText
+          );
           throw new Error(
             `LLM API error: ${response.status} - ${response.statusText}. Details: ${errorText}`
           );
@@ -191,7 +202,8 @@ export class OllamaLLMProvider extends BaseLLMProvider {
           const abortController = new AbortController();
 
           // Combine both cancellation tokens
-          const combinedCancellationToken = new vscode.CancellationTokenSource();
+          const combinedCancellationToken =
+            new vscode.CancellationTokenSource();
           cancellationToken.onCancellationRequested(() => {
             combinedCancellationToken.cancel();
             abortController.abort();
@@ -207,7 +219,10 @@ export class OllamaLLMProvider extends BaseLLMProvider {
           let totalContent = "";
 
           try {
-            logDebug(debugOutputChannel, `[LLM Stream] Starting streaming request to ${this.config.endpoint}`);
+            logDebug(
+              debugOutputChannel,
+              `[LLM Stream] Starting streaming request to ${this.config.endpoint}`
+            );
             progress.report({ message: "Connecting to LLM..." });
 
             const requestBody = {
@@ -221,7 +236,11 @@ export class OllamaLLMProvider extends BaseLLMProvider {
             };
 
             progress.report({ message: "Sending streaming request..." });
-            logDebug(debugOutputChannel, `[LLM Stream] Request body:`, { model: this.config.model, promptLength: prompt.length });
+            logDebug(
+              debugOutputChannel,
+              `[LLM Stream] Request body:`,
+              requestBody
+            );
 
             // Make the API request
             fetch(this.config.endpoint, {
@@ -233,14 +252,21 @@ export class OllamaLLMProvider extends BaseLLMProvider {
               .then(async (response) => {
                 if (!response.ok) {
                   const errorText = await response.text();
-                  logDebug(debugOutputChannel, `[LLM Stream] API Error: ${response.status} - ${response.statusText}`, errorText);
+                  logDebug(
+                    debugOutputChannel,
+                    `[LLM Stream] API Error: ${response.status} - ${response.statusText}`,
+                    errorText
+                  );
                   throw new Error(
                     `LLM API error: ${response.status} - ${response.statusText}. Details: ${errorText}`
                   );
                 }
 
                 progress.report({ message: "Receiving stream..." });
-                logDebug(debugOutputChannel, `[LLM Stream] Stream started successfully`);
+                logDebug(
+                  debugOutputChannel,
+                  `[LLM Stream] Stream started successfully`
+                );
 
                 const reader = response.body?.getReader();
                 if (!reader) {
@@ -255,10 +281,14 @@ export class OllamaLLMProvider extends BaseLLMProvider {
                     while (true) {
                       const { done, value } = await reader.read();
                       if (done) {
-                        logDebug(debugOutputChannel, `[LLM Stream] Stream completed`, {
-                          chunkCount,
-                          totalLength: totalContent.length
-                        });
+                        logDebug(
+                          debugOutputChannel,
+                          `[LLM Stream] Stream completed`,
+                          {
+                            chunkCount,
+                            totalLength: totalContent.length,
+                          }
+                        );
                         progress.report({ message: "Stream completed" });
                         resolve();
                         break;
@@ -281,7 +311,7 @@ export class OllamaLLMProvider extends BaseLLMProvider {
                             // Update progress every 10 chunks
                             if (chunkCount % 10 === 0) {
                               progress.report({
-                                message: `Received ${chunkCount} chunks (${totalContent.length} chars)`
+                                message: `Received ${chunkCount} chunks (${totalContent.length} chars)`,
                               });
                             }
                           }
@@ -292,7 +322,11 @@ export class OllamaLLMProvider extends BaseLLMProvider {
                       }
                     }
                   } catch (error) {
-                    logDebug(debugOutputChannel, `[LLM Stream] Stream processing error:`, error);
+                    logDebug(
+                      debugOutputChannel,
+                      `[LLM Stream] Stream processing error:`,
+                      error
+                    );
                     reject(error);
                   } finally {
                     reader.releaseLock();
@@ -302,7 +336,11 @@ export class OllamaLLMProvider extends BaseLLMProvider {
                 processStream();
               })
               .catch((error) => {
-                logDebug(debugOutputChannel, `[LLM Stream] Request failed:`, error);
+                logDebug(
+                  debugOutputChannel,
+                  `[LLM Stream] Request failed:`,
+                  error
+                );
                 reject(error);
               });
           } catch (error) {
@@ -329,7 +367,10 @@ export class OpenAILLMProvider extends BaseLLMProvider {
       },
       async (progress, cancellationToken) => {
         try {
-          logDebug(debugOutputChannel, `[OpenAI] Starting request to ${this.config.endpoint}`);
+          logDebug(
+            debugOutputChannel,
+            `[OpenAI] Starting request to ${this.config.endpoint}`
+          );
           progress.report({ message: "Connecting to OpenAI..." });
 
           const requestBody = {
@@ -345,7 +386,10 @@ export class OpenAILLMProvider extends BaseLLMProvider {
           };
 
           progress.report({ message: "Sending request..." });
-          logDebug(debugOutputChannel, `[OpenAI] Request body:`, { model: this.config.model, promptLength: prompt.length });
+          logDebug(debugOutputChannel, `[OpenAI] Request body:`, {
+            model: this.config.model,
+            promptLength: prompt.length,
+          });
 
           const response = await fetch(this.config.endpoint, {
             method: "POST",
@@ -357,10 +401,15 @@ export class OpenAILLMProvider extends BaseLLMProvider {
 
           if (response.ok) {
             const data = (await response.json()) as any;
-            logDebug(debugOutputChannel, `[OpenAI] Response received successfully`, {
-              responseLength: data.choices?.[0]?.message?.content?.length || 0,
-              usage: data.usage
-            });
+            logDebug(
+              debugOutputChannel,
+              `[OpenAI] Response received successfully`,
+              {
+                responseLength:
+                  data.choices?.[0]?.message?.content?.length || 0,
+                usage: data.usage,
+              }
+            );
 
             progress.report({ message: "Response processed successfully" });
 
@@ -373,7 +422,11 @@ export class OpenAILLMProvider extends BaseLLMProvider {
           }
 
           const errorText = await response.text();
-          logDebug(debugOutputChannel, `[OpenAI] API Error: ${response.status} - ${response.statusText}`, errorText);
+          logDebug(
+            debugOutputChannel,
+            `[OpenAI] API Error: ${response.status} - ${response.statusText}`,
+            errorText
+          );
           throw new Error(
             `OpenAI API error: ${response.status} - ${response.statusText}. Details: ${errorText}`
           );
@@ -407,7 +460,8 @@ export class OpenAILLMProvider extends BaseLLMProvider {
           const abortController = new AbortController();
 
           // Combine both cancellation tokens
-          const combinedCancellationToken = new vscode.CancellationTokenSource();
+          const combinedCancellationToken =
+            new vscode.CancellationTokenSource();
           cancellationToken.onCancellationRequested(() => {
             combinedCancellationToken.cancel();
             abortController.abort();
@@ -423,7 +477,10 @@ export class OpenAILLMProvider extends BaseLLMProvider {
           let totalContent = "";
 
           try {
-            logDebug(debugOutputChannel, `[OpenAI Stream] Starting streaming request to ${this.config.endpoint}`);
+            logDebug(
+              debugOutputChannel,
+              `[OpenAI Stream] Starting streaming request to ${this.config.endpoint}`
+            );
             progress.report({ message: "Connecting to OpenAI..." });
 
             const requestBody = {
@@ -440,7 +497,10 @@ export class OpenAILLMProvider extends BaseLLMProvider {
             };
 
             progress.report({ message: "Sending streaming request..." });
-            logDebug(debugOutputChannel, `[OpenAI Stream] Request body:`, { model: this.config.model, promptLength: prompt.length });
+            logDebug(debugOutputChannel, `[OpenAI Stream] Request body:`, {
+              model: this.config.model,
+              promptLength: prompt.length,
+            });
 
             fetch(this.config.endpoint, {
               method: "POST",
@@ -451,14 +511,21 @@ export class OpenAILLMProvider extends BaseLLMProvider {
               .then(async (response) => {
                 if (!response.ok) {
                   const errorText = await response.text();
-                  logDebug(debugOutputChannel, `[OpenAI Stream] API Error: ${response.status} - ${response.statusText}`, errorText);
+                  logDebug(
+                    debugOutputChannel,
+                    `[OpenAI Stream] API Error: ${response.status} - ${response.statusText}`,
+                    errorText
+                  );
                   throw new Error(
                     `OpenAI API error: ${response.status} - ${response.statusText}. Details: ${errorText}`
                   );
                 }
 
                 progress.report({ message: "Receiving stream..." });
-                logDebug(debugOutputChannel, `[OpenAI Stream] Stream started successfully`);
+                logDebug(
+                  debugOutputChannel,
+                  `[OpenAI Stream] Stream started successfully`
+                );
 
                 const reader = response.body?.getReader();
                 if (!reader) {
@@ -474,10 +541,14 @@ export class OpenAILLMProvider extends BaseLLMProvider {
                       const { done, value } = await reader.read();
 
                       if (done) {
-                        logDebug(debugOutputChannel, `[OpenAI Stream] Stream completed`, {
-                          chunkCount,
-                          totalLength: totalContent.length
-                        });
+                        logDebug(
+                          debugOutputChannel,
+                          `[OpenAI Stream] Stream completed`,
+                          {
+                            chunkCount,
+                            totalLength: totalContent.length,
+                          }
+                        );
                         progress.report({ message: "Stream completed" });
                         resolve();
                         break;
@@ -506,7 +577,7 @@ export class OpenAILLMProvider extends BaseLLMProvider {
                             // Update progress every 10 chunks
                             if (chunkCount % 10 === 0) {
                               progress.report({
-                                message: `Received ${chunkCount} chunks (${totalContent.length} chars)`
+                                message: `Received ${chunkCount} chunks (${totalContent.length} chars)`,
                               });
                             }
                           }
@@ -517,7 +588,11 @@ export class OpenAILLMProvider extends BaseLLMProvider {
                       }
                     }
                   } catch (error) {
-                    logDebug(debugOutputChannel, `[OpenAI Stream] Stream processing error:`, error);
+                    logDebug(
+                      debugOutputChannel,
+                      `[OpenAI Stream] Stream processing error:`,
+                      error
+                    );
                     reject(error);
                   } finally {
                     reader.releaseLock();
@@ -527,11 +602,19 @@ export class OpenAILLMProvider extends BaseLLMProvider {
                 processStream();
               })
               .catch((error) => {
-                logDebug(debugOutputChannel, `[OpenAI Stream] Request failed:`, error);
+                logDebug(
+                  debugOutputChannel,
+                  `[OpenAI Stream] Request failed:`,
+                  error
+                );
                 reject(error);
               });
           } catch (error) {
-            logDebug(debugOutputChannel, `[OpenAI Stream] Setup failed:`, error);
+            logDebug(
+              debugOutputChannel,
+              `[OpenAI Stream] Setup failed:`,
+              error
+            );
             reject(error);
           }
         });

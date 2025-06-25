@@ -1,11 +1,11 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
-import { SecondarySidebarManager } from "./secondarySidebarManager";
 import { CommandManager } from "./commands";
 import { GhostTextProvider } from "./ghostTextProvider";
 import { ConfigManager } from "./configManager";
 import { ChatPanelProvider } from "./chatPanelProvider";
+import { ReviewPanelProvider } from "./reviewPanelProvider";
 import { SettingsPanelProvider } from "./settingsPanelProvider";
 import { debugOutputChannel, logDebug, handleError } from "./utils";
 
@@ -31,10 +31,6 @@ export async function activate(context: vscode.ExtensionContext) {
       );
     }
 
-    // Initialize secondary sidebar manager
-    const sidebarManager = SecondarySidebarManager.getInstance();
-    sidebarManager.loadData();
-
     // Create and register settings panel provider
     const settingsPanelProvider = new SettingsPanelProvider(
       context.extensionUri
@@ -55,8 +51,17 @@ export async function activate(context: vscode.ExtensionContext) {
       )
     );
 
-    // Initialize command manager with chat panel provider
-    const commandManager = CommandManager.getInstance(chatPanelProvider);
+    // Create review panel provider
+    const reviewPanelProvider = new ReviewPanelProvider(context.extensionUri);
+    context.subscriptions.push(
+      vscode.window.registerWebviewViewProvider(
+        ReviewPanelProvider.viewType,
+        reviewPanelProvider
+      )
+    );
+
+    // Initialize command manager with both panel providers
+    const commandManager = CommandManager.getInstance(chatPanelProvider, reviewPanelProvider);
     commandManager.registerCommands(context);
 
     // Initialize ghost text provider if enabled

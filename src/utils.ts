@@ -295,3 +295,222 @@ export function parseLineNumberFromResponse(lineReference: string): number | nul
 
   return null;
 }
+
+/**
+ * Read template file and render data into it
+ */
+export function renderTemplate(templatePath: string, data: any): string {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+
+    // Read template file
+    const templateContent = fs.readFileSync(templatePath, 'utf8');
+    logDebug(debugOutputChannel, `[Template] Template content length:`, templateContent.length);
+
+    // Simple template rendering with string replacement
+    let renderedContent = templateContent;
+
+    // Replace simple variables first
+    Object.keys(data).forEach(key => {
+      const value = data[key];
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        const regex = new RegExp(`{{${key}}}`, 'g');
+        renderedContent = renderedContent.replace(regex, String(value));
+      }
+    });
+
+    // Handle stats object
+    if (data.stats) {
+      Object.keys(data.stats).forEach(key => {
+        const value = data.stats[key];
+        const regex = new RegExp(`{{stats\\.${key}}}`, 'g');
+        renderedContent = renderedContent.replace(regex, String(value));
+      });
+    }
+
+    // Handle violations loop
+    if (data.violations && data.violations.length > 0) {
+      const violationTemplate = /{{#each violations}}([\s\S]*?){{\/each}}/g.exec(renderedContent)?.[1] || '';
+      let violationsHtml = '';
+
+      data.violations.forEach((violation: any, index: number) => {
+        let violationHtml = violationTemplate;
+
+        // Replace violation properties
+        Object.keys(violation).forEach(key => {
+          const value = violation[key];
+          if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+            const regex = new RegExp(`{{${key}}}`, 'g');
+            violationHtml = violationHtml.replace(regex, String(value));
+          }
+        });
+
+        // Replace context variables
+        violationHtml = violationHtml.replace(/{{\.\.\/fileName}}/g, data.fileName);
+        violationHtml = violationHtml.replace(/{{\.\.\/reviewId}}/g, data.reviewId || 'unknown');
+        violationHtml = violationHtml.replace(/{{@index}}/g, String(index));
+
+        logDebug(debugOutputChannel, `[Template] Processing violation ${index}:`, {
+          originalTemplate: violationTemplate.substring(0, 200) + '...',
+          processedHtml: violationHtml.substring(0, 200) + '...',
+          hasIndexPlaceholder: violationTemplate.includes('{{@index}}'),
+          indexValue: index
+        });
+
+        // Handle approve/reject buttons
+        const status = violation.status || 'pending';
+        if (!status || status === 'pending' || status === 'undefined' || status === 'null') {
+          violationHtml = violationHtml.replace(/{{#if showApproveReject}}([\s\S]*?){{\/if}}/g, '$1');
+        } else {
+          violationHtml = violationHtml.replace(/{{#if showApproveReject}}[\s\S]*?{{\/if}}/g, '');
+        }
+
+        violationsHtml += violationHtml;
+      });
+
+      renderedContent = renderedContent.replace(/{{#each violations}}[\s\S]*?{{\/each}}/g, violationsHtml);
+    } else {
+      renderedContent = renderedContent.replace(/{{#each violations}}[\s\S]*?{{\/each}}/g, '');
+    }
+
+    // Handle conditional blocks
+    if (data.violations && data.violations.length > 0) {
+      // Remove {{#if violations.length}} and {{else}} blocks, keep content between
+      renderedContent = renderedContent.replace(/{{#if violations\.length}}([\s\S]*?){{else}}[\s\S]*?{{\/if}}/g, '$1');
+    } else {
+      // Remove {{#if violations.length}} block, keep {{else}} content
+      renderedContent = renderedContent.replace(/{{#if violations\.length}}[\s\S]*?{{else}}([\s\S]*?){{\/if}}/g, '$1');
+    }
+
+    // Handle other conditionals
+    if (data.isSavedResult) {
+      renderedContent = renderedContent.replace(/{{#if isSavedResult}}([\s\S]*?){{\/if}}/g, '$1');
+    } else {
+      renderedContent = renderedContent.replace(/{{#if isSavedResult}}[\s\S]*?{{\/if}}/g, '');
+    }
+
+    if (data.summary) {
+      renderedContent = renderedContent.replace(/{{#if summary}}([\s\S]*?){{\/if}}/g, '$1');
+    } else {
+      renderedContent = renderedContent.replace(/{{#if summary}}[\s\S]*?{{\/if}}/g, '');
+    }
+
+    if (data.feedbackContext) {
+      renderedContent = renderedContent.replace(/{{#if feedbackContext}}([\s\S]*?){{\/if}}/g, '$1');
+    } else {
+      renderedContent = renderedContent.replace(/{{#if feedbackContext}}[\s\S]*?{{\/if}}/g, '');
+    }
+
+    logDebug(debugOutputChannel, `[Template] Rendered content length:`, renderedContent.length);
+    return renderedContent;
+  } catch (error) {
+    logDebug(debugOutputChannel, `[Template] Error rendering template:`, error);
+    return `<div class="error">Error rendering template: ${error}</div>`;
+  }
+}
+
+/**
+ * Render chat message template
+ */
+export function renderChatMessageTemplate(data: {
+  messageType: 'user' | 'ai';
+  messageContent: string;
+  timestamp: string;
+  isUser: boolean;
+}): string {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+
+    // Get template path
+    const templatePath = path.join(__dirname, '..', 'media', 'chatMessageTemplate.html');
+    const templateContent = fs.readFileSync(templatePath, 'utf8');
+
+    let renderedContent = templateContent;
+
+    // Replace variables
+    renderedContent = renderedContent.replace(/{{messageType}}/g, data.messageType);
+    renderedContent = renderedContent.replace(/{{messageContent}}/g, data.messageContent);
+    renderedContent = renderedContent.replace(/{{timestamp}}/g, data.timestamp);
+
+    // Handle conditional
+    if (data.isUser) {
+      renderedContent = renderedContent.replace(/{{#if isUser}}([\s\S]*?){{else}}[\s\S]*?{{\/if}}/g, '$1');
+    } else {
+      renderedContent = renderedContent.replace(/{{#if isUser}}[\s\S]*?{{else}}([\s\S]*?){{\/if}}/g, '$1');
+    }
+
+    return renderedContent;
+  } catch (error) {
+    logDebug(debugOutputChannel, `[Template] Error rendering chat message template:`, error);
+    return `<div class="message ${data.messageType}"><div class="message-bubble">${data.messageContent}</div><div class="message-time">${data.timestamp}</div></div>`;
+  }
+}
+
+/**
+ * Render code chip template
+ */
+export function renderCodeChipTemplate(data: {
+  displayStyle: 'block' | 'none';
+  chipText: string;
+}): string {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+
+    // Get template path
+    const templatePath = path.join(__dirname, '..', 'media', 'codeChipTemplate.html');
+    const templateContent = fs.readFileSync(templatePath, 'utf8');
+
+    let renderedContent = templateContent;
+
+    // Replace variables
+    renderedContent = renderedContent.replace(/{{displayStyle}}/g, data.displayStyle);
+    renderedContent = renderedContent.replace(/{{chipText}}/g, data.chipText);
+
+    return renderedContent;
+  } catch (error) {
+    logDebug(debugOutputChannel, `[Template] Error rendering code chip template:`, error);
+    return `<div id="codeChip" class="code-chip" style="display: ${data.displayStyle};">${data.chipText}</div>`;
+  }
+}
+
+/**
+ * Render code block buttons template
+ */
+export function renderCodeBlockButtonsTemplate(data: {
+  fileName: string;
+  lineNumber: number;
+  escapedCode: string;
+  escapedOriginalCode: string;
+}): string {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+
+    // Get template path
+    const templatePath = path.join(__dirname, '..', 'media', 'codeBlockButtonsTemplate.html');
+    const templateContent = fs.readFileSync(templatePath, 'utf8');
+
+    let renderedContent = templateContent;
+
+    // Replace variables
+    renderedContent = renderedContent.replace(/{{fileName}}/g, data.fileName);
+    renderedContent = renderedContent.replace(/{{lineNumber}}/g, String(data.lineNumber));
+    renderedContent = renderedContent.replace(/{{escapedCode}}/g, data.escapedCode);
+    renderedContent = renderedContent.replace(/{{escapedOriginalCode}}/g, data.escapedOriginalCode);
+
+    return renderedContent;
+  } catch (error) {
+    logDebug(debugOutputChannel, `[Template] Error rendering code block buttons template:`, error);
+    return `<div class="code-block-buttons" style="display: flex; gap: 4px; margin-top: 8px;">
+      <button class="apply-code-btn" onclick="applyCodeChange('${data.fileName}', ${data.lineNumber}, '${data.escapedCode}', '${data.escapedOriginalCode}')">
+        Apply Code
+      </button>
+      <button class="copy-code-btn" onclick="copyCode('${data.escapedCode}')">
+        Copy
+      </button>
+    </div>`;
+  }
+}

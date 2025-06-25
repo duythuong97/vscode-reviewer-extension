@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Review Results Template</title>
+    <style>
+        /* Code blocks */
+        pre {
+            background: var(--vscode-textBlockQuote-background);
+            border: 1px solid var(--vscode-textBlockQuote-border);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 8px 0;
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 300px;
+            font-family: var(--vscode-editor-font-family);
+            font-size: var(--vscode-editor-font-size);
+            line-height: 1.4;
+            position: relative;
+            white-space: pre;
+            word-wrap: normal;
+            word-break: normal;
+            tab-size: 4;
+        }
+
+        pre code {
+            background: transparent;
+            border: none;
+            padding: 0;
+            margin: 0;
+            font-family: inherit;
+            font-size: inherit;
+            color: var(--vscode-editor-foreground);
+            white-space: pre;
+            word-wrap: normal;
+            word-break: normal;
+            display: block;
+            min-width: max-content;
+        }
+
+        /* Inline code */
+        code:not(pre code) {
+            background: var(--vscode-textBlockQuote-background);
+            border: 1px solid var(--vscode-textBlockQuote-border);
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-family: var(--vscode-editor-font-family);
+            font-size: 0.9em;
+            color: var(--vscode-editor-foreground);
+        }
+
+        /* Scrollbar styling for code blocks */
+        pre::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        pre::-webkit-scrollbar-track {
+            background: var(--vscode-scrollbarSlider-background);
+            border-radius: 4px;
+        }
+
+        pre::-webkit-scrollbar-thumb {
+            background: var(--vscode-scrollbarSlider-activeBackground);
+            border-radius: 4px;
+        }
+
+        pre::-webkit-scrollbar-thumb:hover {
+            background: var(--vscode-scrollbarSlider-hoverBackground);
+        }
+
+        /* Code block header */
+        .code-header {
+            background: var(--vscode-textBlockQuote-background);
+            border: 1px solid var(--vscode-textBlockQuote-border);
+            border-bottom: none;
+            border-radius: 8px 8px 0 0;
+            padding: 8px 12px;
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .code-header + pre {
+            border-radius: 0 0 8px 8px;
+            margin-top: 0;
+        }
+
+        /* Copy button */
+        .copy-code-btn {
+            background: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .copy-code-btn:hover {
+            background: var(--vscode-button-hoverBackground);
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body>
+    <div class="review-results">
+        <h3>🔍 Review Results for {{fileName}}</h3>
+        {{#if isSavedResult}}
+        <div class="saved-result-info" style="font-size: 11px; color: var(--vscode-descriptionForeground); margin-bottom: 12px;">
+            Saved on {{timestamp}}
+        </div>
+        {{/if}}
+
+        {{#if violations.length}}
+        <!-- Stats Section -->
+        <div class="stats-section">
+            <div class="stat-item stat-total">{{stats.total}} Total</div>
+            <div class="stat-item stat-high">{{stats.high}} High</div>
+            <div class="stat-item stat-medium">{{stats.medium}} Medium</div>
+            <div class="stat-item stat-low">{{stats.low}} Low</div>
+        </div>
+
+        <!-- Violations Section -->
+        <div class="violations-section">
+            <h4>Issues Found</h4>
+            {{#each violations}}
+            <div class="violation-item">
+                <div class="violation-header">
+                    <span class="line-number">Line {{line}}</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="severity {{severity}}">{{severity}}</span>
+                        <span class="violation-status {{statusClass}}">{{status}}</span>
+                    </div>
+                </div>
+                <div class="violation-message">{{message}}</div>
+                <div class="code-block">
+                    <div class="code-header">
+                        <span>Current Code</span>
+                        <button class="copy-code-btn" onclick="copyCode('{{originalCode}}')">
+                            📋 Copy
+                        </button>
+                    </div>
+                    <pre><code>{{originalCode}}</code></pre>
+                    <div class="code-header">
+                        <span>Suggested Fix</span>
+                        <button class="copy-code-btn" onclick="copyCode('{{suggestion}}')">
+                            📋 Copy
+                        </button>
+                    </div>
+                    <pre><code>{{suggestion}}</code></pre>
+                    <div class="code-block-buttons">
+                        <button class="apply-code-btn" onclick="applyCodeChange('{{../fileName}}', {{line}}, '{{escapedSuggestion}}', '{{escapedOriginalCode}}')">
+                            ✨ Apply Fix
+                        </button>
+                        {{#if showApproveReject}}
+                        <button class="approve-btn" onclick="approveViolation('{{../reviewId}}', {{@index}}, '{{../fileName}}')">
+                            ✅ Approve
+                        </button>
+                        <button class="reject-btn" onclick="rejectViolation('{{../reviewId}}', {{@index}}, '{{../fileName}}')">
+                            ❌ Reject
+                        </button>
+                        {{/if}}
+                    </div>
+                </div>
+            </div>
+            {{/each}}
+        </div>
+        {{else}}
+        <!-- Success Section -->
+        <div class="success-section">
+            <h4>🎉 No Issues Found!</h4>
+            <p>Excellent work! Your code follows all the defined conventions and best practices.</p>
+        </div>
+        {{/if}}
+
+        {{#if summary}}
+        <!-- Summary Section -->
+        <div class="summary-section">
+            <h4>Summary</h4>
+            <p>{{summary}}</p>
+        </div>
+        {{/if}}
+
+        {{#if feedbackContext}}
+        <!-- Feedback Context Section -->
+        <div class="feedback-context">
+            <h5>Previous Review Feedback</h5>
+            <pre>{{feedbackContext}}</pre>
+        </div>
+        {{/if}}
+
+        <!-- Action Buttons -->
+        <button class="re-review-btn" onclick="reReviewWithFeedback('{{fileName}}')">
+            🔄 Re-review with Feedback
+        </button>
+
+        <button class="complete-btn" onclick="completeReview('{{fileName}}')">
+            ✅ Complete
+        </button>
+
+        <button class="open-file-btn" onclick="openFile('{{fileName}}')">
+            📁 Open File
+        </button>
+    </div>
+</body>
+</html>

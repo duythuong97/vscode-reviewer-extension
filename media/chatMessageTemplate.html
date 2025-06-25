@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Chat Message Template</title>
+</head>
+<body>
+    <div class="message {{messageType}}">
+        <div class="message-bubble">
+            {{#if isUser}}
+                {{messageContent}}
+            {{else}}
+                {{{messageContent}}}
+            {{/if}}
+        </div>
+        <div class="message-time">{{timestamp}}</div>
+    </div>
+</body>
+</html>

@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { WorkspaceFileTemplate } from "./workspaceFileTemplate";
+import { showSuccess } from "./utils";
 
 export interface AIReviewerConfig {
   // Authentication
@@ -103,6 +104,9 @@ export class ConfigManager {
     // Force refresh the configuration
     this.config = vscode.workspace.getConfiguration("aiReviewer");
     console.log("Configuration refreshed");
+
+    // Show success message
+    showSuccess("Settings saved successfully!");
   }
 
   public refreshConfig(): void {
@@ -135,6 +139,9 @@ export class ConfigManager {
       customPrompt: this.workspaceFileTemplate.readFile(".vscode/ai-reviewer-custom-prompt.md")
     };
     await this.updateConfig(defaultConfig);
+
+    // Show success message for reset
+    showSuccess("Settings reset to defaults successfully!");
   }
 
   public validateConfig(): { isValid: boolean; errors: string[] } {

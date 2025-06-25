@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Reviewer Review Panel</title>
+    <style>
+      /* Reset and base styles */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: var(--vscode-font-family);
+        font-size: var(--vscode-font-size);
+        color: var(--vscode-foreground);
+        background-color: var(--vscode-editor-background);
+        line-height: 1.4;
+      }
+
+      /* Review container */
+      .review-container {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        max-width: 100%;
+        margin: 0 auto;
+        padding: 16px;
+        background-color: var(--vscode-editor-background);
+      }
+
+      /* Header */
+      .review-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--vscode-input-border);
+      }
+
+      .review-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--vscode-foreground);
+      }
+
+      .clear-history-btn {
+        background: linear-gradient(135deg, #ff5e57 0%, #ff9500 100%);
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+      }
+      .clear-history-btn:hover {
+        background: linear-gradient(135deg, #ff9500 0%, #ff5e57 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+      }
+
+      /* Review results container */
+      .review-results-container {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      /* Review result styles */
+      .review-result {
+        background: var(--vscode-textBlockQuote-background);
+        border: 1px solid var(--vscode-textBlockQuote-border);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+
+      .review-result-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      .review-file-name {
+        font-weight: 600;
+        color: var(--vscode-foreground);
+      }
+
+      .review-timestamp {
+        font-size: 11px;
+        color: var(--vscode-descriptionForeground);
+      }
+
+      .review-stats {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .stat-item {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+
+      .stat-total {
+        background: var(--vscode-button-background);
+        color: var(--vscode-button-foreground);
+      }
+
+      .stat-high {
+        background: #ff4444;
+        color: white;
+      }
+
+      .stat-medium {
+        background: #ff8800;
+        color: white;
+      }
+
+      .stat-low {
+        background: #44aa44;
+        color: white;
+      }
+
+      /* Violation styles */
+      .violation-item {
+        background: var(--vscode-input-background);
+        border: 1px solid var(--vscode-input-border);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+
+      .violation-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+
+      .line-number {
+        font-weight: 600;
+        color: var(--vscode-foreground);
+      }
+
+      .severity {
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+
+      .severity.high {
+        background: #ff4444;
+        color: white;
+      }
+
+      .severity.medium {
+        background: #ff8800;
+        color: white;
+      }
+
+      .severity.low {
+        background: #44aa44;
+        color: white;
+      }
+
+      .violation-status {
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 10px;
+        font-weight: 600;
+      }
+
+      .violation-status.pending {
+        background: #888888;
+        color: white;
+      }
+
+      .violation-status.approved {
+        background: #44aa44;
+        color: white;
+      }
+
+      .violation-status.rejected {
+        background: #ff4444;
+        color: white;
+      }
+
+      .violation-message {
+        margin-bottom: 8px;
+        color: var(--vscode-foreground);
+      }
+
+      .code-block {
+        background: var(--vscode-textBlockQuote-background);
+        border: 1px solid var(--vscode-textBlockQuote-border);
+        border-radius: 6px;
+        padding: 8px;
+        margin-bottom: 8px;
+      }
+
+      .code-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 11px;
+        color: var(--vscode-descriptionForeground);
+        margin-bottom: 4px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .code-block pre {
+        margin: 0;
+        font-family: var(--vscode-editor-font-family);
+        font-size: var(--vscode-editor-font-size);
+        background: var(--vscode-textBlockQuote-background);
+        border: 1px solid var(--vscode-textBlockQuote-border);
+        border-radius: 8px;
+        padding: 12px;
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 300px;
+        line-height: 1.4;
+        position: relative;
+        white-space: pre;
+        word-wrap: normal;
+        word-break: normal;
+        tab-size: 4;
+      }
+
+      .code-block pre code {
+        background: transparent;
+        border: none;
+        padding: 0;
+        margin: 0;
+        font-family: inherit;
+        font-size: inherit;
+        color: var(--vscode-editor-foreground);
+        white-space: pre;
+        word-wrap: normal;
+        word-break: normal;
+        display: block;
+        min-width: max-content;
+      }
+
+      /* Scrollbar styling for code blocks */
+      .code-block pre::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+
+      .code-block pre::-webkit-scrollbar-track {
+        background: var(--vscode-scrollbarSlider-background);
+        border-radius: 4px;
+      }
+
+      .code-block pre::-webkit-scrollbar-thumb {
+        background: var(--vscode-scrollbarSlider-activeBackground);
+        border-radius: 4px;
+      }
+
+      .code-block pre::-webkit-scrollbar-thumb:hover {
+        background: var(--vscode-scrollbarSlider-hoverBackground);
+      }
+
+      /* Inline code */
+      code:not(pre code) {
+        background: var(--vscode-textBlockQuote-background);
+        border: 1px solid var(--vscode-textBlockQuote-border);
+        border-radius: 4px;
+        padding: 2px 6px;
+        font-family: var(--vscode-editor-font-family);
+        font-size: 0.9em;
+        color: var(--vscode-editor-foreground);
+      }
+
+      .code-block-buttons {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .apply-code-btn, .approve-btn, .reject-btn {
+        padding: 4px 8px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+      }
+
+      .apply-code-btn {
+        background: var(--vscode-button-background);
+        color: var(--vscode-button-foreground);
+      }
+
+      .apply-code-btn:hover {
+        background: var(--vscode-button-hoverBackground);
+      }
+
+      .approve-btn {
+        background: #44aa44;
+        color: white;
+      }
+
+      .approve-btn:hover {
+        background: #338833;
+      }
+
+      .reject-btn {
+        background: #ff4444;
+        color: white;
+      }
+
+      .reject-btn:hover {
+        background: #cc3333;
+      }
+
+      /* Success section */
+      .success-section {
+        background: #44aa44;
+        color: white;
+        padding: 16px;
+        border-radius: 8px;
+        text-align: center;
+      }
+
+      /* Error styles */
+      .error {
+        background: var(--vscode-errorBackground);
+        color: var(--vscode-errorForeground);
+        border: 1px solid var(--vscode-errorBorder);
+        border-radius: 6px;
+        padding: 12px;
+        margin: 8px 0;
+        font-size: 13px;
+      }
+
+      /* Empty state */
+      .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--vscode-descriptionForeground);
+      }
+
+      .empty-state h3 {
+        margin-bottom: 8px;
+        color: var(--vscode-foreground);
+      }
+
+      /* Copy button */
+      .copy-code-btn {
+        background: var(--vscode-button-background);
+        color: var(--vscode-button-foreground);
+        border: none;
+        padding: 4px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 10px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+      }
+
+      .copy-code-btn:hover {
+        background: var(--vscode-button-hoverBackground);
+        transform: translateY(-1px);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="review-container">
+      <div class="review-header">
+        <h2 class="review-title">🔍 Review Results</h2>
+        <button class="clear-history-btn" onclick="clearReviewHistory()">
+          🗑️ Clear History
+        </button>
+      </div>
+
+      <div id="reviewResultsContainer" class="review-results-container">
+        <div class="empty-state">
+          <h3>No Review Results</h3>
+          <p>Review a file to see results here.</p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const vscode = acquireVsCodeApi();
+
+      // Core functions
+      function copyCode(code) {
+        console.log('[ReviewPanel] Copying code, length:', code?.length);
+
+        if (!code) {
+          console.error('[ReviewPanel] No code to copy');
+          return;
+        }
+
+        navigator.clipboard.writeText(code).then(() => {
+          console.log('[ReviewPanel] Code copied to clipboard successfully');
+          // Show a brief success message
+          const button = event.target;
+          const originalText = button.textContent;
+          button.textContent = '✅ Copied!';
+          button.style.background = '#44aa44';
+          setTimeout(() => {
+            button.textContent = originalText;
+            button.style.background = '';
+          }, 1000);
+        }).catch(err => {
+          console.error('[ReviewPanel] Failed to copy code:', err);
+          // Fallback: try to copy using document.execCommand
+          try {
+            const textArea = document.createElement('textarea');
+            textArea.value = code;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            console.log('[ReviewPanel] Code copied using fallback method');
+          } catch (fallbackErr) {
+            console.error('[ReviewPanel] Fallback copy also failed:', fallbackErr);
+          }
+        });
+      }
+
+      function clearReviewHistory() {
+        vscode.postMessage({
+          type: "clearReviewHistory",
+        });
+      }
+
+      function approveViolation(reviewId, violationIndex, fileName) {
+        vscode.postMessage({
+          type: "updateViolationStatus",
+          reviewId: reviewId,
+          violationIndex: violationIndex,
+          status: "approved",
+          fileName: fileName,
+        });
+      }
+
+      function rejectViolation(reviewId, violationIndex, fileName) {
+        vscode.postMessage({
+          type: "updateViolationStatus",
+          reviewId: reviewId,
+          violationIndex: violationIndex,
+          status: "rejected",
+          fileName: fileName,
+        });
+      }
+
+      function applyCodeChange(fileName, lineNumber, newCode, originalCode) {
+        vscode.postMessage({
+          type: "applyCodeChange",
+          fileName: fileName,
+          lineNumber: lineNumber,
+          newCode: newCode,
+          originalCode: originalCode,
+        });
+      }
+
+      function openFile(fileName) {
+        vscode.postMessage({
+          type: "openFile",
+          fileName: fileName,
+        });
+      }
+
+      function completeReview(fileName) {
+        vscode.postMessage({
+          type: "completeReview",
+          fileName: fileName,
+        });
+      }
+
+      function reReviewWithFeedback(fileName) {
+        vscode.postMessage({
+          type: "reReviewWithFeedback",
+          fileName: fileName,
+        });
+      }
+
+      // Event listeners
+      document.addEventListener("DOMContentLoaded", function () {
+        // Notify extension that webview is ready
+        vscode.postMessage({
+          type: "webviewReady",
+        });
+
+        // Add event listener for copy buttons
+        document.addEventListener('click', function(event) {
+          if (event.target.classList.contains('copy-code-btn')) {
+            const encodedCode = event.target.getAttribute('data-code');
+            if (encodedCode) {
+              try {
+                const code = decodeURIComponent(escape(atob(encodedCode)));
+                copyCode(code);
+              } catch (error) {
+                console.error('Error decoding code:', error);
+                copyCode(encodedCode); // Fallback to encoded code
+              }
+            }
+          }
+        });
+      });
+
+      // Message listener
+      window.addEventListener("message", (event) => {
+        const message = event.data;
+        console.log('[ReviewPanel] Received message:', message.type, message);
+
+        switch (message.type) {
+          case "reviewResults":
+            console.log('[ReviewPanel] Handling reviewResults message:', {
+              fileName: message.fileName,
+              hasRenderedHtml: !!message.renderedHtml,
+              renderedHtmlLength: message.renderedHtml?.length
+            });
+            handleReviewResults(message.reviewData, message.fileName, message.renderedHtml);
+            break;
+
+          case "loadReviewResults":
+            console.log('[ReviewPanel] Received loadReviewResults message:', message);
+            loadReviewResults(message.reviewResults);
+            break;
+
+          case "clearReviewPanel":
+            const container = document.getElementById("reviewResultsContainer");
+            container.innerHTML = `
+              <div class="empty-state">
+                <h3>No Review Results</h3>
+                <p>Review a file to see results here.</p>
+              </div>
+            `;
+            break;
+
+          case "violationStatusUpdated":
+            console.log(
+              `Violation status updated: ${message.reviewId}[${message.violationIndex}] -> ${message.status}`
+            );
+            break;
+
+          case "violationStatusUpdateSuccess":
+            console.log(
+              `Violation status update successful: ${message.reviewId}[${message.violationIndex}] -> ${message.status}`
+            );
+            break;
+
+          case "violationStatusUpdateError":
+            console.error("Violation status update error:", message.message);
+            break;
+
+          case "applySuccess":
+            console.log(
+              `Successfully applied code change to ${message.fileName} line ${message.lineNumber}`
+            );
+            break;
+
+          case "applyError":
+            console.error("Apply error:", message.message);
+            break;
+
+          case "showMessage":
+            console.log(`${message.level}: ${message.message}`);
+            break;
+
+          case "error":
+            addErrorMessage(message.content);
+            break;
+        }
+      });
+
+      function handleReviewResults(reviewData, fileName, renderedHtml) {
+        const container = document.getElementById("reviewResultsContainer");
+
+        if (renderedHtml) {
+          // Add the rendered review result to the top
+          const resultDiv = document.createElement("div");
+          resultDiv.innerHTML = renderedHtml;
+          container.insertBefore(resultDiv.firstElementChild, container.firstChild);
+        } else {
+          // Fallback to simple message
+          const resultDiv = document.createElement("div");
+          resultDiv.className = "review-result";
+          resultDiv.innerHTML = `
+            <div class="review-result-header">
+              <span class="review-file-name">${fileName}</span>
+              <span class="review-timestamp">${new Date().toLocaleString()}</span>
+            </div>
+            <p>Review completed for ${fileName}</p>
+          `;
+          container.insertBefore(resultDiv, container.firstChild);
+        }
+
+        // Remove empty state if it exists
+        const emptyState = container.querySelector(".empty-state");
+        if (emptyState) {
+          emptyState.remove();
+        }
+      }
+
+      function loadReviewResults(reviewResults) {
+        const container = document.getElementById("reviewResultsContainer");
+        container.innerHTML = "";
+
+        console.log('[ReviewPanel] Loading review results:', reviewResults);
+
+        if (reviewResults && reviewResults.length > 0) {
+          reviewResults.forEach((result, resultIndex) => {
+            console.log(`[ReviewPanel] Processing result ${resultIndex}:`, {
+              file: result.file,
+              violationsCount: result.violations.length,
+              violations: result.violations.map(v => ({
+                line: v.line,
+                hasOriginalCode: !!v.originalCode,
+                hasSuggestion: !!v.suggestion,
+                originalCodeLength: v.originalCode?.length || 0,
+                suggestionLength: v.suggestion?.length || 0
+              }))
+            });
+
+            const resultDiv = document.createElement("div");
+            resultDiv.className = "review-result";
+
+            const stats = {
+              total: result.violations.length,
+              high: result.violations.filter(v => v.severity === 'high').length,
+              medium: result.violations.filter(v => v.severity === 'medium').length,
+              low: result.violations.filter(v => v.severity === 'low').length,
+            };
+
+            resultDiv.innerHTML = `
+              <div class="review-result-header">
+                <span class="review-file-name">${result.file}</span>
+                <span class="review-timestamp">${new Date(result.timestamp).toLocaleString()}</span>
+              </div>
+              <div class="review-stats">
+                <span class="stat-item stat-total">${stats.total} Total</span>
+                <span class="stat-item stat-high">${stats.high} High</span>
+                <span class="stat-item stat-medium">${stats.medium} Medium</span>
+                <span class="stat-item stat-low">${stats.low} Low</span>
+              </div>
+              ${result.violations.length > 0 ?
+                result.violations.map((violation, index) => `
+                  <div class="violation-item">
+                    <div class="violation-header">
+                      <span class="line-number">Line ${violation.line}</span>
+                      <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="severity ${violation.severity}">${violation.severity}</span>
+                        <span class="violation-status ${violation.status || 'pending'}">${violation.status || 'pending'}</span>
+                      </div>
+                    </div>
+                    <div class="violation-message">${violation.message}</div>
+                    ${violation.originalCode ? `
+                      <div class="code-block">
+                        <div class="code-header">
+                          <span>Current Code</span>
+                          <button class="copy-code-btn" data-code="${btoa(unescape(encodeURIComponent(violation.originalCode)))}">
+                            📋 Copy
+                          </button>
+                        </div>
+                        <pre><code>${violation.originalCode}</code></pre>
+                      </div>
+                    ` : ''}
+                    ${violation.suggestion ? `
+                      <div class="code-block">
+                        <div class="code-header">
+                          <span>Suggested Fix</span>
+                          <button class="copy-code-btn" data-code="${btoa(unescape(encodeURIComponent(violation.suggestion)))}">
+                            📋 Copy
+                          </button>
+                        </div>
+                        <pre><code>${violation.suggestion}</code></pre>
+                        <div class="code-block-buttons">
+                          <button class="apply-code-btn" onclick="applyCodeChange('${result.file}', ${violation.line}, '${violation.suggestion.replace(/'/g, "\\'")}', '${violation.originalCode ? violation.originalCode.replace(/'/g, "\\'") : ''}')">
+                            ✨ Apply Fix
+                          </button>
+                          ${!violation.status || violation.status === 'pending' ? `
+                            <button class="approve-btn" onclick="approveViolation('${result.id}', ${index}, '${result.file}')">
+                              ✅ Approve
+                            </button>
+                            <button class="reject-btn" onclick="rejectViolation('${result.id}', ${index}, '${result.file}')">
+                              ❌ Reject
+                            </button>
+                          ` : ''}
+                        </div>
+                      </div>
+                    ` : ''}
+                  </div>
+                `).join('') :
+                '<div class="success-section"><h4>🎉 No Issues Found!</h4><p>Excellent work! Your code follows all the defined conventions and best practices.</p></div>'
+              }
+              <div style="display: flex; gap: 8px; margin-top: 12px;">
+                <button class="apply-code-btn" onclick="reReviewWithFeedback('${result.file}')">
+                  🔄 Re-review with Feedback
+                </button>
+                <button class="apply-code-btn" onclick="completeReview('${result.file}')">
+                  ✅ Complete
+                </button>
+                <button class="apply-code-btn" onclick="openFile('${result.file}')">
+                  📁 Open File
+                </button>
+              </div>
+            `;
+
+            container.appendChild(resultDiv);
+          });
+        } else {
+          container.innerHTML = `
+            <div class="empty-state">
+              <h3>No Review Results</h3>
+              <p>Review a file to see results here.</p>
+            </div>
+          `;
+        }
+      }
+
+      function addErrorMessage(content) {
+        const container = document.getElementById("reviewResultsContainer");
+        const errorDiv = document.createElement("div");
+        errorDiv.className = "error";
+        errorDiv.innerHTML = content;
+        container.insertBefore(errorDiv, container.firstChild);
+      }
+    </script>
+  </body>
+</html>
