@@ -162,10 +162,10 @@
                             ✨ Apply Fix
                         </button>
                         {{#if showApproveReject}}
-                        <button class="approve-btn" onclick="approveViolation('{{../reviewId}}', {{@index}}, '{{../fileName}}')">
-                            ✅ Approve
+                        <button class="approve-btn" data-review-id="{{../reviewId}}" data-violation-index="{{@index}}" onclick="approveViolation('{{../reviewId}}', {{@index}}, '{{../fileName}}')">
+                            ✅ Accept
                         </button>
-                        <button class="reject-btn" onclick="rejectViolation('{{../reviewId}}', {{@index}}, '{{../fileName}}')">
+                        <button class="reject-btn" data-review-id="{{../reviewId}}" data-violation-index="{{@index}}" onclick="rejectViolation('{{../reviewId}}', {{@index}}, '{{../fileName}}')">
                             ❌ Reject
                         </button>
                         {{/if}}
@@ -211,5 +211,7 @@
             📁 Open File
         </button>
     </div>
+
+
 </body>
 </html>

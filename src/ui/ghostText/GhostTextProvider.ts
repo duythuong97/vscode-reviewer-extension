@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { Logger, VSCodeUtils, debugOutputChannel } from '../../utils';
-import { LLMProviderFactory } from '../../services/llm/providers/LLMProvider';
+import { LLMProviderFactory } from '../../services/llm/providers';
 import { PromptManager } from '../../core/Prompts';
 import { ConfigManager } from '../../core/managers/ConfigManager';
 

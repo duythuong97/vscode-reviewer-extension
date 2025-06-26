@@ -6,12 +6,13 @@ import { PromptManager } from "../core/Prompts";
 import { ChatHistoryManager } from "../core/managers/ChatHistoryManager";
 import { ViolationStorageManager } from "../services/storage/managers/ViolationStorageManager";
 import { SettingsPanelProvider } from "../ui/panels/SettingsPanelProvider";
-import { ReviewCommands } from "./reviewCommands";
-import { SettingsCommands } from "./settingsCommands";
-import { ChatCommands } from "./chatCommands";
-import { GhostTextCommands } from "./ghostTextCommands";
-import { TemplateCommands } from "./templateCommands";
-import { UtilityCommands } from "./utilityCommands";
+import { ReviewCommands } from "./ReviewCommands";
+import { SettingsCommands } from "./SettingsCommands";
+import { ChatCommands } from "./ChatCommands";
+import { GhostTextCommands } from "./GhostTextCommands";
+import { TemplateCommands } from "./TemplateCommands";
+import { UtilityCommands } from "./UtilityCommands";
+
 
 export class CommandManager {
   private static instance: CommandManager;

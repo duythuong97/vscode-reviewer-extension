@@ -1,15 +1,12 @@
-// Temporary export from original location
-export * from './LLMProvider';
-
 // Export base class
-export { BaseLLMProvider } from './BaseLLMProvider';
+export { BaseLLMProvider } from "./BaseLLMProvider";
 
 // Export concrete providers
-export { OllamaLLMProvider } from './OllamaLLMProvider';
-export { OpenAILLMProvider } from './OpenAILLMProvider';
+export { OllamaLLMProvider } from "./OllamaLLMProvider";
+export { OpenAILLMProvider } from "./OpenAILLMProvider";
 
 // Export factory
-export { LLMProviderFactory } from './LLMProviderFactory';
+export { LLMProviderFactory } from "./LLMProviderFactory";
 
 // Export types
 export type {
@@ -19,5 +16,5 @@ export type {
   LLMProviderType,
   LLMRequestBody,
   LLMAPIResponse,
-  LLMError
-} from '../../../types/llm';
+  LLMError,
+} from "../../../types/llm";

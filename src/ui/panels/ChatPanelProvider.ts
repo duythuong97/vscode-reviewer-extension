@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { Logger, debugOutputChannel, VSCodeUtils } from "../../utils";
-import { LLMProviderFactory } from "../../services/llm/providers/LLMProvider";
+import { LLMProviderFactory } from "../../services/llm/providers";
 import * as path from "path";
 import * as fs from "fs";
 import { marked } from "marked";
@@ -918,24 +918,6 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
     this._view?.webview.postMessage({
       type: "selectedCode",
       selectedCode: false,
-    });
-  }
-
-  private addMessage(
-    message: any,
-    isUser: boolean,
-    isStreaming: boolean = false
-  ) {
-    let messageContent = message.content || message.message || "";
-    if (!isUser) {
-      // Convert markdown to HTML for AI message
-      messageContent = marked.parse(messageContent);
-    }
-    const renderedMessage = TemplateRenderer.renderChatMessageTemplate({
-      messageType: isUser ? "user" : "ai",
-      messageContent: messageContent,
-      timestamp: message.timestamp || new Date().toLocaleTimeString(),
-      isUser: isUser,
     });
   }
 }

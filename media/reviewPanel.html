@@ -295,7 +295,9 @@
         margin-top: 8px;
       }
 
-      .apply-code-btn, .approve-btn, .reject-btn {
+      .apply-code-btn,
+      .approve-btn,
+      .reject-btn {
         padding: 4px 8px;
         border: none;
         border-radius: 4px;
@@ -405,39 +407,45 @@
 
       // Core functions
       function copyCode(code) {
-        console.log('[ReviewPanel] Copying code, length:', code?.length);
+        console.log("[ReviewPanel] Copying code, length:", code?.length);
 
         if (!code) {
-          console.error('[ReviewPanel] No code to copy');
+          console.error("[ReviewPanel] No code to copy");
           return;
         }
 
-        navigator.clipboard.writeText(code).then(() => {
-          console.log('[ReviewPanel] Code copied to clipboard successfully');
-          // Show a brief success message
-          const button = event.target;
-          const originalText = button.textContent;
-          button.textContent = '✅ Copied!';
-          button.style.background = '#44aa44';
-          setTimeout(() => {
-            button.textContent = originalText;
-            button.style.background = '';
-          }, 1000);
-        }).catch(err => {
-          console.error('[ReviewPanel] Failed to copy code:', err);
-          // Fallback: try to copy using document.execCommand
-          try {
-            const textArea = document.createElement('textarea');
-            textArea.value = code;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            console.log('[ReviewPanel] Code copied using fallback method');
-          } catch (fallbackErr) {
-            console.error('[ReviewPanel] Fallback copy also failed:', fallbackErr);
-          }
-        });
+        navigator.clipboard
+          .writeText(code)
+          .then(() => {
+            console.log("[ReviewPanel] Code copied to clipboard successfully");
+            // Show a brief success message
+            const button = event.target;
+            const originalText = button.textContent;
+            button.textContent = "✅ Copied!";
+            button.style.background = "#44aa44";
+            setTimeout(() => {
+              button.textContent = originalText;
+              button.style.background = "";
+            }, 1000);
+          })
+          .catch((err) => {
+            console.error("[ReviewPanel] Failed to copy code:", err);
+            // Fallback: try to copy using document.execCommand
+            try {
+              const textArea = document.createElement("textarea");
+              textArea.value = code;
+              document.body.appendChild(textArea);
+              textArea.select();
+              document.execCommand("copy");
+              document.body.removeChild(textArea);
+              console.log("[ReviewPanel] Code copied using fallback method");
+            } catch (fallbackErr) {
+              console.error(
+                "[ReviewPanel] Fallback copy also failed:",
+                fallbackErr
+              );
+            }
+          });
       }
 
       function clearReviewHistory() {
@@ -485,7 +493,7 @@
 
       function completeReview(fileName) {
         vscode.postMessage({
-          type: "completeReview",
+          type: "clearReviewHistory",
           fileName: fileName,
         });
       }
@@ -505,15 +513,15 @@
         });
 
         // Add event listener for copy buttons
-        document.addEventListener('click', function(event) {
-          if (event.target.classList.contains('copy-code-btn')) {
-            const encodedCode = event.target.getAttribute('data-code');
+        document.addEventListener("click", function (event) {
+          if (event.target.classList.contains("copy-code-btn")) {
+            const encodedCode = event.target.getAttribute("data-code");
             if (encodedCode) {
               try {
                 const code = decodeURIComponent(escape(atob(encodedCode)));
                 copyCode(code);
               } catch (error) {
-                console.error('Error decoding code:', error);
+                console.error("Error decoding code:", error);
                 copyCode(encodedCode); // Fallback to encoded code
               }
             }
@@ -524,20 +532,27 @@
       // Message listener
       window.addEventListener("message", (event) => {
         const message = event.data;
-        console.log('[ReviewPanel] Received message:', message.type, message);
+        console.log("[ReviewPanel] Received message:", message.type, message);
 
         switch (message.type) {
           case "reviewResults":
-            console.log('[ReviewPanel] Handling reviewResults message:', {
+            console.log("[ReviewPanel] Handling reviewResults message:", {
               fileName: message.fileName,
               hasRenderedHtml: !!message.renderedHtml,
-              renderedHtmlLength: message.renderedHtml?.length
+              renderedHtmlLength: message.renderedHtml?.length,
             });
-            handleReviewResults(message.reviewData, message.fileName, message.renderedHtml);
+            handleReviewResults(
+              message.reviewData,
+              message.fileName,
+              message.renderedHtml
+            );
             break;
 
           case "loadReviewResults":
-            console.log('[ReviewPanel] Received loadReviewResults message:', message);
+            console.log(
+              "[ReviewPanel] Received loadReviewResults message:",
+              message
+            );
             loadReviewResults(message.reviewResults);
             break;
 
@@ -560,6 +575,12 @@
           case "violationStatusUpdateSuccess":
             console.log(
               `Violation status update successful: ${message.reviewId}[${message.violationIndex}] -> ${message.status}`
+            );
+            // Cập nhật UI để ẩn button approve/reject và cập nhật status
+            updateViolationStatusUI(
+              message.reviewId,
+              message.violationIndex,
+              message.status
             );
             break;
 
@@ -594,7 +615,10 @@
           // Add the rendered review result to the top
           const resultDiv = document.createElement("div");
           resultDiv.innerHTML = renderedHtml;
-          container.insertBefore(resultDiv.firstElementChild, container.firstChild);
+          container.insertBefore(
+            resultDiv.firstElementChild,
+            container.firstChild
+          );
         } else {
           // Fallback to simple message
           const resultDiv = document.createElement("div");
@@ -620,20 +644,20 @@
         const container = document.getElementById("reviewResultsContainer");
         container.innerHTML = "";
 
-        console.log('[ReviewPanel] Loading review results:', reviewResults);
+        console.log("[ReviewPanel] Loading review results:", reviewResults);
 
         if (reviewResults && reviewResults.length > 0) {
           reviewResults.forEach((result, resultIndex) => {
             console.log(`[ReviewPanel] Processing result ${resultIndex}:`, {
               file: result.file,
               violationsCount: result.violations.length,
-              violations: result.violations.map(v => ({
+              violations: result.violations.map((v) => ({
                 line: v.line,
                 hasOriginalCode: !!v.originalCode,
                 hasSuggestion: !!v.suggestion,
                 originalCodeLength: v.originalCode?.length || 0,
-                suggestionLength: v.suggestion?.length || 0
-              }))
+                suggestionLength: v.suggestion?.length || 0,
+              })),
             });
 
             const resultDiv = document.createElement("div");
@@ -641,80 +665,125 @@
 
             const stats = {
               total: result.violations.length,
-              high: result.violations.filter(v => v.severity === 'high').length,
-              medium: result.violations.filter(v => v.severity === 'medium').length,
-              low: result.violations.filter(v => v.severity === 'low').length,
+              high: result.violations.filter((v) => v.severity === "high")
+                .length,
+              medium: result.violations.filter((v) => v.severity === "medium")
+                .length,
+              low: result.violations.filter((v) => v.severity === "low").length,
             };
 
             resultDiv.innerHTML = `
               <div class="review-result-header">
                 <span class="review-file-name">${result.file}</span>
-                <span class="review-timestamp">${new Date(result.timestamp).toLocaleString()}</span>
+                <span class="review-timestamp">${new Date(
+                  result.timestamp
+                ).toLocaleString()}</span>
               </div>
               <div class="review-stats">
                 <span class="stat-item stat-total">${stats.total} Total</span>
                 <span class="stat-item stat-high">${stats.high} High</span>
-                <span class="stat-item stat-medium">${stats.medium} Medium</span>
+                <span class="stat-item stat-medium">${
+                  stats.medium
+                } Medium</span>
                 <span class="stat-item stat-low">${stats.low} Low</span>
               </div>
-              ${result.violations.length > 0 ?
-                result.violations.map((violation, index) => `
+              ${
+                result.violations.length > 0
+                  ? result.violations
+                      .map(
+                        (violation, index) => `
                   <div class="violation-item">
                     <div class="violation-header">
                       <span class="line-number">Line ${violation.line}</span>
                       <div style="display: flex; align-items: center; gap: 8px;">
-                        <span class="severity ${violation.severity}">${violation.severity}</span>
-                        <span class="violation-status ${violation.status || 'pending'}">${violation.status || 'pending'}</span>
+                        <span class="severity ${violation.severity}">${
+                          violation.severity
+                        }</span>
+                        <span class="violation-status ${
+                          violation.status || "pending"
+                        }">${violation.status || "pending"}</span>
                       </div>
                     </div>
                     <div class="violation-message">${violation.message}</div>
-                    ${violation.originalCode ? `
+                    ${
+                      violation.originalCode
+                        ? `
                       <div class="code-block">
                         <div class="code-header">
                           <span>Current Code</span>
-                          <button class="copy-code-btn" data-code="${btoa(unescape(encodeURIComponent(violation.originalCode)))}">
+                          <button class="copy-code-btn" data-code="${btoa(
+                            unescape(encodeURIComponent(violation.originalCode))
+                          )}">
                             📋 Copy
                           </button>
                         </div>
                         <pre><code>${violation.originalCode}</code></pre>
                       </div>
-                    ` : ''}
-                    ${violation.suggestion ? `
+                    `
+                        : ""
+                    }
+                    ${
+                      violation.suggestion
+                        ? `
                       <div class="code-block">
                         <div class="code-header">
                           <span>Suggested Fix</span>
-                          <button class="copy-code-btn" data-code="${btoa(unescape(encodeURIComponent(violation.suggestion)))}">
+                          <button class="copy-code-btn" data-code="${btoa(
+                            unescape(encodeURIComponent(violation.suggestion))
+                          )}">
                             📋 Copy
                           </button>
                         </div>
                         <pre><code>${violation.suggestion}</code></pre>
                         <div class="code-block-buttons">
-                          <button class="apply-code-btn" onclick="applyCodeChange('${result.file}', ${violation.line}, '${violation.suggestion.replace(/'/g, "\\'")}', '${violation.originalCode ? violation.originalCode.replace(/'/g, "\\'") : ''}')">
+                          <button class="apply-code-btn" onclick="applyCodeChange('${
+                            result.file
+                          }', ${
+                            violation.line
+                          }, '${violation.suggestion.replace(/'/g, "\\'")}', '${
+                            violation.originalCode
+                              ? violation.originalCode.replace(/'/g, "\\'")
+                              : ""
+                          }')">
                             ✨ Apply Fix
                           </button>
-                          ${!violation.status || violation.status === 'pending' ? `
-                            <button class="approve-btn" onclick="approveViolation('${result.id}', ${index}, '${result.file}')">
+                          ${
+                            !violation.status || violation.status === "pending"
+                              ? `
+                            <button class="approve-btn" data-review-id="${result.id}" data-violation-index="${index}" onclick="approveViolation('${result.id}', ${index}, '${result.file}')">
                               ✅ Approve
                             </button>
-                            <button class="reject-btn" onclick="rejectViolation('${result.id}', ${index}, '${result.file}')">
+                            <button class="reject-btn" data-review-id="${result.id}" data-violation-index="${index}" onclick="rejectViolation('${result.id}', ${index}, '${result.file}')">
                               ❌ Reject
                             </button>
-                          ` : ''}
+                          `
+                              : ""
+                          }
                         </div>
                       </div>
-                    ` : ''}
+                    `
+                        : ""
+                    }
                   </div>
-                `).join('') :
-                '<div class="success-section"><h4>🎉 No Issues Found!</h4><p>Excellent work! Your code follows all the defined conventions and best practices.</p></div>'
+                `
+                      )
+                      .join("")
+                  : '<div class="success-section"><h4>🎉 No Issues Found!</h4><p>Excellent work! Your code follows all the defined conventions and best practices.</p></div>'
               }
               <div style="display: flex; gap: 8px; margin-top: 12px;">
-                <button class="apply-code-btn" onclick="reReviewWithFeedback('${result.file}')">
+                <button class="apply-code-btn" onclick="reReviewWithFeedback('${
+                  result.file
+                }')">
                   🔄 Re-review with Feedback
                 </button>
-                <button class="apply-code-btn" onclick="completeReview('${result.file}')">
+                <button class="apply-code-btn" onclick="completeReview('${
+                  result.file
+                }')">
                   ✅ Complete
                 </button>
-                <button class="apply-code-btn" onclick="openFile('${result.file}')">
+                <button class="apply-code-btn" onclick="openFile('${
+                  result.file
+                }')">
                   📁 Open File
                 </button>
               </div>
@@ -738,6 +807,42 @@
         errorDiv.className = "error";
         errorDiv.innerHTML = content;
         container.insertBefore(errorDiv, container.firstChild);
+      }
+
+      function updateViolationStatusUI(reviewId, violationIndex, status) {
+        // Tìm tất cả các button approve/reject có data-review-id và data-violation-index phù hợp
+        const approveButtons = document.querySelectorAll(
+          `.approve-btn[data-review-id="${reviewId}"][data-violation-index="${violationIndex}"]`
+        );
+        const rejectButtons = document.querySelectorAll(
+          `.reject-btn[data-review-id="${reviewId}"][data-violation-index="${violationIndex}"]`
+        );
+
+        // Ẩn các button approve/reject
+        approveButtons.forEach((btn) => {
+          btn.style.display = "none";
+        });
+
+        rejectButtons.forEach((btn) => {
+          btn.style.display = "none";
+        });
+
+        // Cập nhật status badge trong cùng violation item
+        if (approveButtons.length > 0) {
+          const violationItem = approveButtons[0].closest(".violation-item");
+          if (violationItem) {
+            const statusBadge =
+              violationItem.querySelector(".violation-status");
+            if (statusBadge) {
+              statusBadge.textContent = status;
+              statusBadge.className = `violation-status ${status}`;
+            }
+          }
+        }
+
+        console.log(
+          `Updated violation ${reviewId}[${violationIndex}] status to ${status} and hidden approve/reject buttons`
+        );
       }
     </script>
   </body>
