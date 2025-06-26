@@ -5,6 +5,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { marked } from "marked";
 import { ViolationStorageManager } from "../../services/storage/managers/ViolationStorageManager";
+import { AgentWorkflow, AgentStepResult } from "../../types";
 
 export class ReviewPanelProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "aiReviewer.reviewPanel";
@@ -210,6 +211,154 @@ export class ReviewPanelProvider implements vscode.WebviewViewProvider {
               }`,
             });
           }
+          break;
+        case "executeCurrentStep":
+          try {
+            await vscode.commands.executeCommand("ai-reviewer.executeCurrentStep");
+          } catch (error) {
+            Logger.logDebug(
+              debugOutputChannel,
+              `[ReviewPanel] Error executing current step:`,
+              error
+            );
+            webviewView.webview.postMessage({
+              type: "error",
+              content: `Error executing current step: ${
+                error instanceof Error ? error.message : "Unknown error"
+              }`,
+            });
+          }
+          break;
+        case "executeStep":
+          try {
+            const { stepId } = data;
+            await vscode.commands.executeCommand("ai-reviewer.executeStep", stepId);
+          } catch (error) {
+            Logger.logDebug(
+              debugOutputChannel,
+              `[ReviewPanel] Error executing step ${data.stepId}:`,
+              error
+            );
+            webviewView.webview.postMessage({
+              type: "error",
+              content: `Error executing step: ${
+                error instanceof Error ? error.message : "Unknown error"
+              }`,
+            });
+          }
+          break;
+        case "nextStep":
+          try {
+            await vscode.commands.executeCommand("ai-reviewer.nextStep");
+          } catch (error) {
+            Logger.logDebug(
+              debugOutputChannel,
+              `[ReviewPanel] Error moving to next step:`,
+              error
+            );
+            webviewView.webview.postMessage({
+              type: "error",
+              content: `Error moving to next step: ${
+                error instanceof Error ? error.message : "Unknown error"
+              }`,
+            });
+          }
+          break;
+        case "executeFullWorkflow":
+          try {
+            await vscode.commands.executeCommand("ai-reviewer.executeFullWorkflow");
+          } catch (error) {
+            Logger.logDebug(
+              debugOutputChannel,
+              `[ReviewPanel] Error executing full workflow:`,
+              error
+            );
+            webviewView.webview.postMessage({
+              type: "error",
+              content: `Error executing full workflow: ${
+                error instanceof Error ? error.message : "Unknown error"
+              }`,
+            });
+          }
+          break;
+        case "clearWorkflow":
+          try {
+            await vscode.commands.executeCommand("ai-reviewer.clearWorkflow");
+          } catch (error) {
+            Logger.logDebug(
+              debugOutputChannel,
+              `[ReviewPanel] Error clearing workflow:`,
+              error
+            );
+            webviewView.webview.postMessage({
+              type: "error",
+              content: `Error clearing workflow: ${
+                error instanceof Error ? error.message : "Unknown error"
+              }`,
+            });
+          }
+          break;
+        case "createAgentWorkflow":
+          try {
+            await vscode.commands.executeCommand("ai-reviewer.createAgentWorkflow");
+          } catch (error) {
+            Logger.logDebug(
+              debugOutputChannel,
+              `[ReviewPanel] Error creating agent workflow:`,
+              error
+            );
+            webviewView.webview.postMessage({
+              type: "error",
+              content: `Error creating agent workflow: ${
+                error instanceof Error ? error.message : "Unknown error"
+              }`,
+            });
+          }
+          break;
+        case "error":
+          // Send error to webview
+          webviewView.webview.postMessage({
+            type: "error",
+            content: data.content
+          });
+          break;
+        case "agentWorkflow":
+          console.log('[ReviewPanel] Received agent workflow:', data.workflow);
+          // Send to webview to handle
+          webviewView.webview.postMessage({
+            type: "agentWorkflow",
+            workflow: data.workflow
+          });
+          break;
+        case "agentStepResult":
+          console.log('[ReviewPanel] Received agent step result:', data.result);
+          // Send to webview to handle
+          webviewView.webview.postMessage({
+            type: "agentStepResult",
+            result: data.result
+          });
+          break;
+        case "updateAgentWorkflow":
+          console.log('[ReviewPanel] Received update agent workflow:', data.workflow);
+          // Send to webview to handle
+          webviewView.webview.postMessage({
+            type: "updateAgentWorkflow",
+            workflow: data.workflow
+          });
+          break;
+        case "completeAgentWorkflow":
+          console.log('[ReviewPanel] Agent workflow completed');
+          // Send to webview to handle
+          webviewView.webview.postMessage({
+            type: "completeAgentWorkflow"
+          });
+          break;
+        case "clearAgentWorkflow":
+          console.log('[ReviewPanel] Agent workflow cleared');
+          // Send to webview to handle
+          webviewView.webview.postMessage({
+            type: "clearAgentWorkflow"
+          });
           break;
       }
     });
@@ -671,5 +820,119 @@ export class ReviewPanelProvider implements vscode.WebviewViewProvider {
       </body>
       </html>
     `;
+  }
+
+  // AI Agent Workflow Methods
+  public async sendAgentWorkflow(workflow: AgentWorkflow): Promise<void> {
+    try {
+      await this.sendMessageWithRetry({
+        type: "agentWorkflow",
+        workflow: workflow,
+      });
+
+      Logger.logDebug(
+        debugOutputChannel,
+        `[ReviewPanel] Sent agent workflow:`,
+        {
+          id: workflow.id,
+          stepsCount: workflow.steps.length,
+          currentStep: workflow.currentStep,
+        }
+      );
+    } catch (error) {
+      Logger.logDebug(
+        debugOutputChannel,
+        `[ReviewPanel] Error sending agent workflow:`,
+        error
+      );
+    }
+  }
+
+  public async updateAgentStepResult(result: AgentStepResult): Promise<void> {
+    try {
+      await this.sendMessageWithRetry({
+        type: "agentStepResult",
+        result: result,
+      });
+
+      Logger.logDebug(
+        debugOutputChannel,
+        `[ReviewPanel] Sent agent step result:`,
+        {
+          stepId: result.stepId,
+          success: result.success,
+          hasError: !!result.error,
+        }
+      );
+    } catch (error) {
+      Logger.logDebug(
+        debugOutputChannel,
+        `[ReviewPanel] Error sending agent step result:`,
+        error
+      );
+    }
+  }
+
+  public async updateAgentWorkflow(workflow: AgentWorkflow | null): Promise<void> {
+    try {
+      await this.sendMessageWithRetry({
+        type: "updateAgentWorkflow",
+        workflow: workflow,
+      });
+
+      Logger.logDebug(
+        debugOutputChannel,
+        `[ReviewPanel] Updated agent workflow:`,
+        {
+          hasWorkflow: !!workflow,
+          currentStep: workflow?.currentStep,
+          status: workflow?.status,
+        }
+      );
+    } catch (error) {
+      Logger.logDebug(
+        debugOutputChannel,
+        `[ReviewPanel] Error updating agent workflow:`,
+        error
+      );
+    }
+  }
+
+  public async completeAgentWorkflow(): Promise<void> {
+    try {
+      await this.sendMessageWithRetry({
+        type: "completeAgentWorkflow",
+      });
+
+      Logger.logDebug(
+        debugOutputChannel,
+        `[ReviewPanel] Completed agent workflow`
+      );
+    } catch (error) {
+      Logger.logDebug(
+        debugOutputChannel,
+        `[ReviewPanel] Error completing agent workflow:`,
+        error
+      );
+    }
+  }
+
+  public async clearAgentWorkflow(): Promise<void> {
+    try {
+      await this.sendMessageWithRetry({
+        type: "clearAgentWorkflow",
+      });
+
+      Logger.logDebug(
+        debugOutputChannel,
+        `[ReviewPanel] Cleared agent workflow`
+      );
+    } catch (error) {
+      Logger.logDebug(
+        debugOutputChannel,
+        `[ReviewPanel] Error clearing agent workflow:`,
+        error
+      );
+    }
   }
 }

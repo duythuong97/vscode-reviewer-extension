@@ -27,6 +27,7 @@ export interface AIReviewerConfig {
   showNotifications: boolean;
   themeAware: boolean;
   ghostTextEnabled: boolean;
+  autoIndexWorkspace: boolean;
 
   // Advanced Settings
   debugMode: boolean;
@@ -93,6 +94,7 @@ export class ConfigManager {
       showNotifications: this.config.get<boolean>("showNotifications", true),
       themeAware: this.config.get<boolean>("themeAware", true),
       ghostTextEnabled: this.config.get<boolean>("ghostTextEnabled", true),
+      autoIndexWorkspace: this.config.get<boolean>("autoIndexWorkspace", true),
 
       // Advanced Settings
       debugMode: this.config.get<boolean>("debugMode", false),
@@ -159,6 +161,7 @@ export class ConfigManager {
       showNotifications: true,
       themeAware: true,
       ghostTextEnabled: true,
+      autoIndexWorkspace: true,
       debugMode: false,
       customPrompt: this.workspaceFileTemplate.readFile(
         ".vscode/ai-reviewer-custom-prompt.md"
@@ -233,6 +236,7 @@ export class ConfigManager {
       showNotifications: config.showNotifications,
       themeAware: config.themeAware,
       ghostTextEnabled: config.ghostTextEnabled,
+      autoIndexWorkspace: config.autoIndexWorkspace,
     };
   }
 

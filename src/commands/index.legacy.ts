@@ -12,6 +12,7 @@ import { ChatCommands } from "./ChatCommands";
 import { GhostTextCommands } from "./GhostTextCommands";
 import { TemplateCommands } from "./TemplateCommands";
 import { UtilityCommands } from "./UtilityCommands";
+import { AgentCommands } from "./AgentCommands";
 
 
 export class CommandManager {
@@ -22,6 +23,7 @@ export class CommandManager {
   private ghostTextCommands: GhostTextCommands;
   private templateCommands: TemplateCommands;
   private utilityCommands: UtilityCommands;
+  private agentCommands: AgentCommands;
 
   private constructor(chatPanelProvider: ChatPanelProvider, reviewPanelProvider: ReviewPanelProvider) {
     const configManager = ConfigManager.getInstance();
@@ -53,6 +55,8 @@ export class CommandManager {
     this.templateCommands = new TemplateCommands(promptManager);
 
     this.utilityCommands = new UtilityCommands(violationStorageManager);
+
+    this.agentCommands = new AgentCommands(reviewPanelProvider);
   }
 
   public static getInstance(
@@ -209,6 +213,43 @@ export class CommandManager {
     context.subscriptions.push(
       vscode.commands.registerCommand("ai-reviewer.clearSavedViolations", () =>
         this.utilityCommands.clearSavedViolations()
+      )
+    );
+
+    // Register agent commands
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ai-reviewer.createAgentWorkflow", () =>
+        this.agentCommands.createAgentWorkflow()
+      )
+    );
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ai-reviewer.executeCurrentStep", () =>
+        this.agentCommands.executeCurrentStep()
+      )
+    );
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ai-reviewer.executeStep", (stepId: string) =>
+        this.agentCommands.executeStep(stepId)
+      )
+    );
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ai-reviewer.nextStep", () =>
+        this.agentCommands.nextStep()
+      )
+    );
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ai-reviewer.executeFullWorkflow", () =>
+        this.agentCommands.executeFullWorkflow()
+      )
+    );
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ai-reviewer.clearWorkflow", () =>
+        this.agentCommands.clearWorkflow()
       )
     );
   }

@@ -21,6 +21,14 @@ export class VSCodeUtils {
     vscode.window.showInformationMessage(message);
   }
 
+  static showInformation(message: string): void {
+    vscode.window.showInformationMessage(message);
+  }
+
+  static showError(message: string): void {
+    vscode.window.showErrorMessage(message);
+  }
+
   static showWarning(message: string): void {
     vscode.window.showWarningMessage(message);
   }

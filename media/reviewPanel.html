@@ -383,6 +383,274 @@
         background: var(--vscode-button-hoverBackground);
         transform: translateY(-1px);
       }
+
+      /* AI Agent Workflow Styles */
+      .agent-workflow {
+        background: var(--vscode-editor-background);
+        border: 1px solid var(--vscode-input-border);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+
+      .workflow-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--vscode-input-border);
+      }
+
+      .workflow-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--vscode-foreground);
+      }
+
+      .workflow-status {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+
+      .workflow-status.pending {
+        background: #888888;
+        color: white;
+      }
+
+      .workflow-status.running {
+        background: #ff8800;
+        color: white;
+      }
+
+      .workflow-status.completed {
+        background: #44aa44;
+        color: white;
+      }
+
+      .workflow-status.failed {
+        background: #ff4444;
+        color: white;
+      }
+
+      .workflow-summary {
+        color: var(--vscode-descriptionForeground);
+        margin-bottom: 16px;
+      }
+
+      .steps-container {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .step-item {
+        background: var(--vscode-input-background);
+        border: 1px solid var(--vscode-input-border);
+        border-radius: 8px;
+        padding: 12px;
+        position: relative;
+      }
+
+      .step-item.current {
+        border-color: var(--vscode-button-background);
+        background: var(--vscode-textBlockQuote-background);
+      }
+
+      .step-item.completed {
+        border-color: #44aa44;
+        background: var(--vscode-textBlockQuote-background);
+      }
+
+      .step-item.failed {
+        border-color: #ff4444;
+        background: var(--vscode-textBlockQuote-background);
+      }
+
+      .step-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+
+      .step-title {
+        font-weight: 600;
+        color: var(--vscode-foreground);
+      }
+
+      .step-status {
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+
+      .step-status.pending {
+        background: #888888;
+        color: white;
+      }
+
+      .step-status.running {
+        background: #ff8800;
+        color: white;
+      }
+
+      .step-status.completed {
+        background: #44aa44;
+        color: white;
+      }
+
+      .step-status.failed {
+        background: #ff4444;
+        color: white;
+      }
+
+      .step-description {
+        color: var(--vscode-descriptionForeground);
+        font-size: 12px;
+        margin-bottom: 8px;
+      }
+
+      .step-command {
+        background: var(--vscode-textBlockQuote-background);
+        border: 1px solid var(--vscode-textBlockQuote-border);
+        border-radius: 4px;
+        padding: 8px;
+        font-family: var(--vscode-editor-font-family);
+        font-size: 11px;
+        color: var(--vscode-editor-foreground);
+        margin-bottom: 8px;
+      }
+
+      .step-result {
+        background: var(--vscode-textBlockQuote-background);
+        border: 1px solid var(--vscode-textBlockQuote-border);
+        border-radius: 4px;
+        padding: 8px;
+        font-size: 11px;
+        color: var(--vscode-editor-foreground);
+        margin-top: 8px;
+      }
+
+      .step-error {
+        background: #ff4444;
+        color: white;
+        border-radius: 4px;
+        padding: 8px;
+        font-size: 11px;
+        margin-top: 8px;
+      }
+
+      .workflow-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid var(--vscode-input-border);
+      }
+
+      .workflow-btn {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+      }
+
+      .workflow-btn.primary {
+        background: var(--vscode-button-background);
+        color: var(--vscode-button-foreground);
+      }
+
+      .workflow-btn.primary:hover {
+        background: var(--vscode-button-hoverBackground);
+      }
+
+      .workflow-btn.secondary {
+        background: var(--vscode-input-background);
+        color: var(--vscode-foreground);
+        border: 1px solid var(--vscode-input-border);
+      }
+
+      .workflow-btn.secondary:hover {
+        background: var(--vscode-input-hoverBackground);
+      }
+
+      .workflow-btn.danger {
+        background: #ff4444;
+        color: white;
+      }
+
+      .workflow-btn.danger:hover {
+        background: #ff6666;
+      }
+
+      .step-number {
+        position: absolute;
+        top: -8px;
+        left: -8px;
+        background: var(--vscode-button-background);
+        color: var(--vscode-button-foreground);
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 600;
+      }
+
+      .step-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .step-execute-btn {
+        padding: 4px 8px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        background-color: var(--vscode-button-background);
+        color: var(--vscode-button-foreground);
+      }
+
+      .step-execute-btn:hover {
+        background-color: var(--vscode-button-hoverBackground);
+      }
+
+      .step-execute-btn:disabled {
+        background-color: var(--vscode-button-secondaryBackground);
+        color: var(--vscode-button-secondaryForeground);
+        cursor: not-allowed;
+      }
+
+      .step-rerun-btn {
+        padding: 4px 8px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        background-color: var(--vscode-button-secondaryBackground);
+        color: var(--vscode-button-secondaryForeground);
+      }
+
+      .step-rerun-btn:hover {
+        background-color: var(--vscode-button-secondaryHoverBackground);
+      }
     </style>
   </head>
   <body>
@@ -604,6 +872,26 @@
 
           case "error":
             addErrorMessage(message.content);
+            break;
+          case "agentWorkflow":
+            console.log('[ReviewPanel] Handling agent workflow:', message.workflow);
+            handleAgentWorkflow(message.workflow);
+            break;
+          case "agentStepResult":
+            console.log('[ReviewPanel] Handling agent step result:', message.result);
+            updateAgentStepResult(message.result);
+            break;
+          case "updateAgentWorkflow":
+            console.log('[ReviewPanel] Handling update agent workflow:', message.workflow);
+            updateAgentWorkflow(message.workflow);
+            break;
+          case "completeAgentWorkflow":
+            console.log('[ReviewPanel] Handling complete agent workflow');
+            completeAgentWorkflow();
+            break;
+          case "clearAgentWorkflow":
+            console.log('[ReviewPanel] Handling clear agent workflow');
+            clearAgentWorkflow();
             break;
         }
       });
@@ -843,6 +1131,188 @@
         console.log(
           `Updated violation ${reviewId}[${violationIndex}] status to ${status} and hidden approve/reject buttons`
         );
+      }
+
+      // AI Agent Workflow Functions
+      function handleAgentWorkflow(workflow) {
+        const container = document.getElementById("reviewResultsContainer");
+
+        // Clear existing content
+        container.innerHTML = "";
+
+        // Create workflow HTML
+        const workflowHtml = createAgentWorkflowHTML(workflow);
+        container.innerHTML = workflowHtml;
+      }
+
+      function updateAgentStepResult(result) {
+        // Find the step element and update its result
+        const stepElement = document.querySelector(`[data-step-id="${result.stepId}"]`);
+        if (stepElement) {
+          const resultDiv = stepElement.querySelector('.step-result');
+          const errorDiv = stepElement.querySelector('.step-error');
+
+          if (result.success) {
+            if (resultDiv) {
+              resultDiv.innerHTML = `<strong>Result:</strong> ${JSON.stringify(result.data, null, 2)}`;
+              resultDiv.style.display = 'block';
+            }
+            if (errorDiv) {
+              errorDiv.style.display = 'none';
+            }
+          } else {
+            if (errorDiv) {
+              errorDiv.innerHTML = `<strong>Error:</strong> ${result.error}`;
+              errorDiv.style.display = 'block';
+            }
+            if (resultDiv) {
+              resultDiv.style.display = 'none';
+            }
+          }
+        }
+      }
+
+      function updateAgentWorkflow(workflow) {
+        if (workflow) {
+          handleAgentWorkflow(workflow);
+        } else {
+          clearAgentWorkflow();
+        }
+      }
+
+      function completeAgentWorkflow() {
+        // Show completion message
+        const container = document.getElementById("reviewResultsContainer");
+        const completionDiv = document.createElement("div");
+        completionDiv.className = "workflow-completion";
+        completionDiv.innerHTML = `
+          <div style="text-align: center; padding: 20px; background: #44aa44; color: white; border-radius: 8px; margin: 16px 0;">
+            <h3>🎉 AI Agent Workflow Completed!</h3>
+            <p>All steps have been executed successfully.</p>
+          </div>
+        `;
+        container.appendChild(completionDiv);
+      }
+
+      function clearAgentWorkflow() {
+        const container = document.getElementById("reviewResultsContainer");
+        container.innerHTML = `
+          <div class="empty-state">
+            <h3>No Active Workflow</h3>
+            <p>Create a new AI Agent workflow to get started.</p>
+            <button class="workflow-btn primary" onclick="createNewWorkflow()">
+              🤖 Create New Workflow
+            </button>
+          </div>
+        `;
+      }
+
+      function createAgentWorkflowHTML(workflow) {
+        return `
+          <div class="agent-workflow">
+            <div class="workflow-header">
+              <div class="workflow-title">🤖 AI Agent Workflow</div>
+              <div class="workflow-status ${workflow.status}">${workflow.status}</div>
+            </div>
+
+            <div class="workflow-summary">${workflow.summary}</div>
+
+            <div class="steps-container">
+              ${workflow.steps.map((step, index) => `
+                <div class="step-item ${index === workflow.currentStep ? 'current' : ''} ${step.status}" data-step-id="${step.id}">
+                  <div class="step-number">${index + 1}</div>
+
+                  <div class="step-header">
+                    <div class="step-title">${step.title}</div>
+                    <div class="step-status ${step.status}">${step.status}</div>
+                  </div>
+
+                  <div class="step-description">${step.description}</div>
+
+                  <div class="step-command">
+                    <strong>Command:</strong> ${step.command}
+                    ${step.parameters ? `<br><strong>Parameters:</strong> ${JSON.stringify(step.parameters, null, 2)}` : ''}
+                  </div>
+
+                  <div class="step-actions">
+                    <button class="step-execute-btn" onclick="executeStep('${step.id}')" ${step.status === 'completed' ? 'disabled' : ''}>
+                      ${step.status === 'completed' ? '✅ Completed' : '▶️ Execute Step'}
+                    </button>
+                    ${step.status === 'completed' ? `
+                      <button class="step-rerun-btn" onclick="executeStep('${step.id}')">
+                        🔄 Re-run Step
+                      </button>
+                    ` : ''}
+                  </div>
+
+                  ${step.result ? `
+                    <div class="step-result">
+                      <strong>Result:</strong> ${JSON.stringify(step.result, null, 2)}
+                    </div>
+                  ` : ''}
+
+                  ${step.error ? `
+                    <div class="step-error">
+                      <strong>Error:</strong> ${step.error}
+                    </div>
+                  ` : ''}
+                </div>
+              `).join('')}
+            </div>
+
+            <div class="workflow-actions">
+              <button class="workflow-btn primary" onclick="executeCurrentStep()">
+                ▶️ Execute Current Step
+              </button>
+              <button class="workflow-btn secondary" onclick="nextStep()">
+                ⏭️ Next Step
+              </button>
+              <button class="workflow-btn primary" onclick="executeFullWorkflow()">
+                🚀 Execute Full Workflow
+              </button>
+              <button class="workflow-btn danger" onclick="clearWorkflow()">
+                🗑️ Clear Workflow
+              </button>
+            </div>
+          </div>
+        `;
+      }
+
+      function createNewWorkflow() {
+        vscode.postMessage({
+          type: "createAgentWorkflow"
+        });
+      }
+
+      function executeStep(stepId) {
+        vscode.postMessage({
+          type: "executeStep",
+          stepId: stepId
+        });
+      }
+
+      function executeCurrentStep() {
+        vscode.postMessage({
+          type: "executeCurrentStep"
+        });
+      }
+
+      function nextStep() {
+        vscode.postMessage({
+          type: "nextStep"
+        });
+      }
+
+      function executeFullWorkflow() {
+        vscode.postMessage({
+          type: "executeFullWorkflow"
+        });
+      }
+
+      function clearWorkflow() {
+        vscode.postMessage({
+          type: "clearWorkflow"
+        });
       }
     </script>
   </body>
