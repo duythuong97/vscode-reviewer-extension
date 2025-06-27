@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { ChatPanelProvider } from "../ui/panels/ChatPanelProvider";
 import { ReviewPanelProvider } from "../ui/panels/ReviewPanelProvider";
+import { AgentPanelProvider } from "../ui/panels/AgentPanelProvider";
 import { ConfigManager } from "../core/managers/ConfigManager";
 import { PromptManager } from "../core/Prompts";
 import { ChatHistoryManager } from "../core/managers/ChatHistoryManager";
@@ -13,6 +14,7 @@ import { GhostTextCommands } from "./GhostTextCommands";
 import { TemplateCommands } from "./TemplateCommands";
 import { UtilityCommands } from "./UtilityCommands";
 import { AgentCommands } from "./AgentCommands";
+import { UnitTestCommands } from "./UnitTestCommands";
 
 
 export class CommandManager {
@@ -24,8 +26,13 @@ export class CommandManager {
   private templateCommands: TemplateCommands;
   private utilityCommands: UtilityCommands;
   private agentCommands: AgentCommands;
+  private unitTestCommands: UnitTestCommands;
 
-  private constructor(chatPanelProvider: ChatPanelProvider, reviewPanelProvider: ReviewPanelProvider) {
+  private constructor(
+    chatPanelProvider: ChatPanelProvider,
+    reviewPanelProvider: ReviewPanelProvider,
+    agentPanelProvider: AgentPanelProvider
+  ) {
     const configManager = ConfigManager.getInstance();
     const promptManager = PromptManager.getInstance();
     const chatHistoryManager = ChatHistoryManager.getInstance();
@@ -56,15 +63,18 @@ export class CommandManager {
 
     this.utilityCommands = new UtilityCommands(violationStorageManager);
 
-    this.agentCommands = new AgentCommands(reviewPanelProvider);
+    this.agentCommands = new AgentCommands(agentPanelProvider);
+
+    this.unitTestCommands = new UnitTestCommands(agentPanelProvider);
   }
 
   public static getInstance(
     chatPanelProvider: ChatPanelProvider,
-    reviewPanelProvider: ReviewPanelProvider
+    reviewPanelProvider: ReviewPanelProvider,
+    agentPanelProvider: AgentPanelProvider
   ): CommandManager {
     if (!CommandManager.instance) {
-      CommandManager.instance = new CommandManager(chatPanelProvider, reviewPanelProvider);
+      CommandManager.instance = new CommandManager(chatPanelProvider, reviewPanelProvider, agentPanelProvider);
     }
     return CommandManager.instance;
   }
@@ -250,6 +260,31 @@ export class CommandManager {
     context.subscriptions.push(
       vscode.commands.registerCommand("ai-reviewer.clearWorkflow", () =>
         this.agentCommands.clearWorkflow()
+      )
+    );
+
+    // Register unit test commands
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ai-reviewer.generateUnitTests", () =>
+        this.unitTestCommands.generateUnitTestsForCurrentFile()
+      )
+    );
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ai-reviewer.generateUnitTestsForFile", () =>
+        this.unitTestCommands.generateUnitTestsForSelectedFile()
+      )
+    );
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ai-reviewer.retryUnitTestGeneration", () =>
+        this.unitTestCommands.retryUnitTestGeneration()
+      )
+    );
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ai-reviewer.resetUnitTestAgent", () =>
+        this.unitTestCommands.resetUnitTestAgent()
       )
     );
   }

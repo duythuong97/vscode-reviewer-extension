@@ -96,12 +96,6 @@ export abstract class BaseLLMProvider {
 
   // Helper method to handle API errors
   protected handleAPIError(response: Response, errorText: string): LLMError {
-    Logger.logDebug(
-      debugOutputChannel,
-      `[LLM] API Error: ${response.status} - ${response.statusText}`,
-      errorText
-    );
-
     return {
       message: `LLM API error: ${response.status} - ${response.statusText}`,
       status: response.status,
@@ -112,8 +106,6 @@ export abstract class BaseLLMProvider {
 
   // Helper method to handle network errors
   protected handleNetworkError(error: any): LLMError {
-    Logger.logDebug(debugOutputChannel, `[LLM] Request failed:`, error);
-
     return {
       message: `Failed to call LLM API: ${error instanceof Error ? error.message : "Unknown error"}`,
       details: error instanceof Error ? error.stack : undefined,

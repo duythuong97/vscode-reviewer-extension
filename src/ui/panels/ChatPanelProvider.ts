@@ -132,21 +132,6 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
               prompt = `${selectedCode}\n\n${prompt}`;
             }
 
-            // Debug: Log the prompt to console
-            Logger.logDebug(
-              debugOutputChannel,
-              "=== AI Reviewer Chat - Prompt Debug ===",
-              {
-                selectedCode: selectedCode
-                  ? `Yes (${codeSelections.length} selections)`
-                  : "No",
-                userMessage: data.message,
-                hasContext: conversationContext ? "Yes" : "No",
-                prompt:
-                  prompt.substring(0, 300) + (prompt.length > 300 ? "..." : ""),
-              }
-            );
-
             // Send initial response message to create the AI message bubble
             webviewView.webview.postMessage({
               type: "startStreaming",
@@ -270,21 +255,6 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
           try {
             const { fileName, lineNumber, newCode, originalCode } = data;
 
-            Logger.logDebug(
-              debugOutputChannel,
-              `[ApplyCode] Attempting to apply code change:`,
-              {
-                fileName: fileName,
-                lineNumber: lineNumber,
-                newCode:
-                  newCode.substring(0, 100) +
-                  (newCode.length > 100 ? "..." : ""),
-                originalCode:
-                  originalCode.substring(0, 100) +
-                  (originalCode.length > 100 ? "..." : ""),
-              }
-            );
-
             // Parse line number if it's a string or needs parsing
             let parsedLineNumber = lineNumber;
             if (typeof lineNumber === "string") {
@@ -292,13 +262,8 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
                 VSCodeUtils.parseLineNumberFromResponse(lineNumber);
               if (extractedLineNumber !== null) {
                 parsedLineNumber = extractedLineNumber;
-                Logger.logDebug(
-                  debugOutputChannel,
-                  `[ApplyCode] Parsed line number from "${lineNumber}" to ${parsedLineNumber}`
-                );
               } else {
-                Logger.logDebug(
-                  debugOutputChannel,
+                console.log(
                   `[ApplyCode] Could not parse line number from "${lineNumber}"`
                 );
               }
@@ -362,16 +327,6 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
             const line = document.lineAt(parsedLineNumber - 1);
             const lineText = line.text;
 
-            Logger.logDebug(
-              debugOutputChannel,
-              `[ApplyCode] Applying change to line ${parsedLineNumber}:`,
-              {
-                originalLine: lineText,
-                originalCode: originalCode,
-                newCode: newCode,
-              }
-            );
-
             // Find the original code in the line and replace it
             let range: vscode.Range;
             let cleanedNewCode: string;
@@ -393,17 +348,6 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
 
                 // Clean up the new code (remove extra whitespace/newlines)
                 cleanedNewCode = newCode.trim();
-
-                Logger.logDebug(
-                  debugOutputChannel,
-                  `[ApplyCode] Replacing specific code at position ${originalCodeIndex}:`,
-                  {
-                    range: `${originalCodeIndex}-${
-                      originalCodeIndex + originalCodeTrimmed.length
-                    }`,
-                    replacement: cleanedNewCode,
-                  }
-                );
               } else {
                 // Original code not found, replace the entire line
                 range = new vscode.Range(
@@ -414,15 +358,6 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
                 // Preserve indentation from the original line
                 const indentation = lineText.match(/^\s*/)?.[0] || "";
                 cleanedNewCode = indentation + newCode.trim();
-
-                Logger.logDebug(
-                  debugOutputChannel,
-                  `[ApplyCode] Original code not found, replacing entire line with indentation:`,
-                  {
-                    indentation: `"${indentation}"`,
-                    replacement: cleanedNewCode,
-                  }
-                );
               }
             } else {
               // No original code provided, replace the entire line
@@ -434,15 +369,6 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
               // Preserve indentation from the original line
               const indentation = lineText.match(/^\s*/)?.[0] || "";
               cleanedNewCode = indentation + newCode.trim();
-
-              Logger.logDebug(
-                debugOutputChannel,
-                `[ApplyCode] No original code provided, replacing entire line with indentation:`,
-                {
-                  indentation: `"${indentation}"`,
-                  replacement: cleanedNewCode,
-                }
-              );
             }
 
             await editor.edit((editBuilder) => {
@@ -455,17 +381,7 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
               fileName: fileName,
               lineNumber: parsedLineNumber,
             });
-
-            Logger.logDebug(
-              debugOutputChannel,
-              `[ApplyCode] Successfully applied code change to ${fileName} line ${parsedLineNumber}`
-            );
           } catch (error) {
-            Logger.logDebug(
-              debugOutputChannel,
-              `[ApplyCode] Error applying code change:`,
-              error
-            );
             webviewView.webview.postMessage({
               type: "applyError",
               message: `Failed to apply code change: ${
@@ -500,11 +416,6 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
               });
             }
           } catch (error) {
-            Logger.logDebug(
-              debugOutputChannel,
-              `[ChatPanel] Error updating violation status:`,
-              error
-            );
             webviewView.webview.postMessage({
               type: "violationStatusUpdateError",
               message: `Error updating violation status: ${
@@ -621,11 +532,6 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
                   fileUri
                 );
                 await vscode.window.showTextDocument(document);
-
-                Logger.logDebug(
-                  debugOutputChannel,
-                  `[ChatPanel] Opened file: ${fileUri.fsPath}`
-                );
               } else {
                 webviewView.webview.postMessage({
                   type: "error",
@@ -639,11 +545,6 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
               });
             }
           } catch (error) {
-            Logger.logDebug(
-              debugOutputChannel,
-              `[ChatPanel] Error opening file:`,
-              error
-            );
             webviewView.webview.postMessage({
               type: "error",
               content: `Error opening file: ${
@@ -772,20 +673,10 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
           status: status,
           note: note,
         });
-
-        Logger.logDebug(
-          debugOutputChannel,
-          `[ChatPanel] Updated violation status: ${reviewId}[${violationIndex}] -> ${status}`
-        );
       }
 
       return success;
     } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ChatPanel] Failed to update violation status:`,
-        error
-      );
       return false;
     }
   }
@@ -793,10 +684,6 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
   public async loadChatHistory(): Promise<void> {
     try {
       if (!this._view) {
-        Logger.logDebug(
-          debugOutputChannel,
-          `[ChatPanel] Webview not available, skipping loadChatHistory`
-        );
         return;
       }
 
@@ -819,20 +706,7 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
           timestamp: Date.now(),
         },
       });
-
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ChatPanel] Loaded chat history with ${
-          history?.messages.length || 0
-        } messages`
-      );
-    } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ChatPanel] Failed to load chat history:`,
-        error
-      );
-    }
+    } catch (error) {}
   }
 
   public async clearChatPanel(): Promise<void> {
@@ -840,38 +714,17 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
       this._view?.webview.postMessage({
         type: "clearChatPanel",
       });
-      Logger.logDebug(debugOutputChannel, `[ChatPanel] Chat panel cleared`);
-    } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ChatPanel] Failed to clear chat panel:`,
-        error
-      );
-    }
+    } catch (error) {}
   }
 
   public async refreshChatHistory(): Promise<void> {
     try {
       if (!this._view) {
-        Logger.logDebug(
-          debugOutputChannel,
-          `[ChatPanel] Webview not available, skipping refreshChatHistory`
-        );
         return;
       }
 
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ChatPanel] Force refreshing chat history`
-      );
       await this.loadChatHistory();
-    } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ChatPanel] Failed to refresh chat history:`,
-        error
-      );
-    }
+    } catch (error) {}
   }
 
   public isWebviewAvailable(): boolean {

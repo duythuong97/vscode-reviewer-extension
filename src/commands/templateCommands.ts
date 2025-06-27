@@ -38,8 +38,6 @@ export class TemplateCommands {
         if (filePath) {
           const document = await vscode.workspace.openTextDocument(filePath);
           await vscode.window.showTextDocument(document);
-
-          Logger.logDebug(debugOutputChannel, `[Template] Editing template`, { template: selected.value, filePath });
         }
       }
     } catch (error) {

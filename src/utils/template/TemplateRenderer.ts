@@ -25,11 +25,6 @@ export class TemplateRenderer {
 
       return templateContent;
     } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[TemplateRenderer] Error rendering template:`,
-        error
-      );
       throw new Error(`Failed to render template: ${error}`);
     }
   }

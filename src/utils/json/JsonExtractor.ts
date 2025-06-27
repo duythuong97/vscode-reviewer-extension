@@ -10,12 +10,19 @@ export class JsonExtractor {
     const cleanedResponse = response.replace(/SyntaxError.*$/s, '').trim();
 
     // First, try to find JSON blocks with more specific patterns
+    // Prioritize arrays first, then objects
     const jsonPatterns = [
-      // Look for JSON blocks that might be wrapped in ```json or ``` blocks
+      // Look for JSON arrays that might be wrapped in ```json or ``` blocks
+      /```(?:json)?\s*(\[[\s\S]*?\])\s*```/g,
+      // Look for JSON arrays that might be wrapped in ``` blocks without json specifier
+      /```\s*(\[[\s\S]*?\])\s*```/g,
+      // Look for JSON arrays that start with [ and end with ] (greedy to capture full array)
+      /\[[\s\S]*\]/g,
+      // Look for JSON blocks that might be wrapped in ```json or ``` blocks (objects)
       /```(?:json)?\s*(\{[\s\S]*?\})\s*```/g,
-      // Look for JSON blocks that might be wrapped in ``` blocks without json specifier
+      // Look for JSON blocks that might be wrapped in ``` blocks without json specifier (objects)
       /```\s*(\{[\s\S]*?\})\s*```/g,
-      // Look for JSON blocks that start with { and end with } (non-greedy)
+      // Look for JSON blocks that start with { and end with } (non-greedy) - objects
       /\{[\s\S]*?\}/g
     ];
 
@@ -27,10 +34,13 @@ export class JsonExtractor {
             // Clean up the match - remove markdown code block markers if present
             let jsonStr = match;
             if (match.startsWith('```')) {
-              // Extract content from markdown code blocks
-              const contentMatch = match.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-              if (contentMatch) {
-                jsonStr = contentMatch[1];
+              // Extract content from markdown code blocks (both objects and arrays)
+              const objectMatch = match.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+              const arrayMatch = match.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/);
+              if (objectMatch) {
+                jsonStr = objectMatch[1];
+              } else if (arrayMatch) {
+                jsonStr = arrayMatch[1];
               }
             }
 
@@ -39,21 +49,18 @@ export class JsonExtractor {
               // Strategy 1: JSON5 (most tolerant)
               () => {
                 const parsed = JSON5.parse(jsonStr);
-                Logger.logDebug(debugOutputChannel, `[JSON Extraction] Successfully parsed with JSON5`);
                 return parsed;
               },
               // Strategy 2: Strip comments then JSON5
               () => {
                 const stripped = stripJsonComments(jsonStr);
                 const parsed = JSON5.parse(stripped);
-                Logger.logDebug(debugOutputChannel, `[JSON Extraction] Successfully parsed with strip-comments + JSON5`);
                 return parsed;
               },
               // Strategy 3: Clean then regular JSON
               () => {
                 const cleaned = JsonExtractor.cleanJsonString(jsonStr);
                 const parsed = JSON.parse(cleaned);
-                Logger.logDebug(debugOutputChannel, `[JSON Extraction] Successfully parsed with clean + regular JSON`);
                 return parsed;
               },
               // Strategy 4: Strip comments then regular JSON
@@ -61,7 +68,6 @@ export class JsonExtractor {
                 const stripped = stripJsonComments(jsonStr);
                 const cleaned = JsonExtractor.cleanJsonString(stripped);
                 const parsed = JSON.parse(cleaned);
-                Logger.logDebug(debugOutputChannel, `[JSON Extraction] Successfully parsed with strip-comments + clean + regular JSON`);
                 return parsed;
               }
             ];
@@ -69,10 +75,10 @@ export class JsonExtractor {
             for (const strategy of parsingStrategies) {
               try {
                 const parsed = strategy();
-                if (parsed && typeof parsed === 'object') {
-                  // Check if it has violations array or other expected properties
-                  if (parsed.violations || parsed.summary || Object.keys(parsed).length > 0) {
-                    Logger.logDebug(debugOutputChannel, `[JSON Extraction] Successfully extracted JSON:`, parsed);
+                if (parsed && (typeof parsed === 'object' || Array.isArray(parsed))) {
+                  // Check if it has violations array or other expected properties, or is a valid array
+                  if (parsed.violations || parsed.summary || Array.isArray(parsed) || Object.keys(parsed).length > 0) {
+                    console.log("Successfully parsed JSON:", typeof parsed, Array.isArray(parsed) ? `Array with ${parsed.length} items` : "Object");
                     return parsed;
                   }
                 }
@@ -82,7 +88,6 @@ export class JsonExtractor {
               }
             }
           } catch (parseError) {
-            Logger.logDebug(debugOutputChannel, `[JSON Extraction] Failed to parse JSON block: ${parseError}`);
             continue;
           }
         }
@@ -91,8 +96,8 @@ export class JsonExtractor {
 
     // If no valid JSON found, try to extract the largest JSON-like structure
     try {
-      // Find all potential JSON objects in the response using a more robust pattern
-      const allMatches = response.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g);
+      // Find all potential JSON objects and arrays in the response using a more robust pattern
+      const allMatches = response.match(/(?:\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})|(?:\[[^\[\]]*(?:\{[^{}]*\}[^\[\]]*)*\])/g);
       if (allMatches) {
         // Sort by length (longest first) to get the most complete JSON
         allMatches.sort((a, b) => b.length - a.length);
@@ -108,8 +113,8 @@ export class JsonExtractor {
           for (const strategy of parsingStrategies) {
             try {
               const parsed = strategy();
-              if (parsed && typeof parsed === 'object') {
-                Logger.logDebug(debugOutputChannel, `[JSON Extraction] Found JSON using fallback strategy:`, parsed);
+              if (parsed && (typeof parsed === 'object' || Array.isArray(parsed))) {
+                console.log("Successfully parsed JSON from fallback:", typeof parsed, Array.isArray(parsed) ? `Array with ${parsed.length} items` : "Object");
                 return parsed;
               }
             } catch (error) {
@@ -119,7 +124,6 @@ export class JsonExtractor {
         }
       }
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[JSON Extraction] Fallback extraction failed: ${error}`);
     }
 
     // Last resort: try to fix common JSON issues and parse
@@ -136,8 +140,8 @@ export class JsonExtractor {
         for (const strategy of parsingStrategies) {
           try {
             const parsed = strategy();
-            if (parsed && typeof parsed === 'object') {
-              Logger.logDebug(debugOutputChannel, `[JSON Extraction] Found JSON using fix method:`, parsed);
+            if (parsed && (typeof parsed === 'object' || Array.isArray(parsed))) {
+              console.log("Successfully parsed JSON from last resort:", typeof parsed, Array.isArray(parsed) ? `Array with ${parsed.length} items` : "Object");
               return parsed;
             }
           } catch (error) {
@@ -146,7 +150,6 @@ export class JsonExtractor {
         }
       }
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[JSON Extraction] Fix method failed: ${error}`);
     }
 
     throw new Error('No valid JSON found in LLM response');
@@ -170,11 +173,21 @@ export class JsonExtractor {
 
   // Helper function to fix common JSON issues
   private static fixCommonJsonIssues(response: string): string | null {
-    // Try to find the largest JSON-like structure and fix it
-    const jsonMatch = response.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {return null;}
+    // Try to find the largest JSON-like structure and fix it (both objects and arrays)
+    const objectMatch = response.match(/\{[\s\S]*\}/);
+    const arrayMatch = response.match(/\[[\s\S]*\]/);
 
-    let jsonStr = jsonMatch[0];
+    let jsonStr = null;
+    if (objectMatch && arrayMatch) {
+      // If both found, use the longer one
+      jsonStr = objectMatch[0].length > arrayMatch[0].length ? objectMatch[0] : arrayMatch[0];
+    } else if (objectMatch) {
+      jsonStr = objectMatch[0];
+    } else if (arrayMatch) {
+      jsonStr = arrayMatch[0];
+    }
+
+    if (!jsonStr) {return null;}
 
     // Fix common issues
     jsonStr = jsonStr

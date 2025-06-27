@@ -521,19 +521,9 @@
       }
 
       // Message handlers
-      function handleReviewResults(reviewData, fileName) {
-        // This function is deprecated - review results are now handled by ReviewPanelProvider
-        console.warn(
-          "handleReviewResults is deprecated. Review results should be displayed in Review Panel."
-        );
-      }
+      function handleReviewResults(reviewData, fileName) {}
 
-      function handleSavedReviewResult(result) {
-        // This function is deprecated - review results are now handled by ReviewPanelProvider
-        console.warn(
-          "handleSavedReviewResult is deprecated. Review results should be displayed in Review Panel."
-        );
-      }
+      function handleSavedReviewResult(result) {}
 
       // Utility functions
       function clearReviewHistory() {
@@ -557,17 +547,13 @@
       }
 
       function copyCode(code) {
-        console.log("[ChatPanel] Copying code, length:", code?.length);
-
         if (!code) {
-          console.error("[ChatPanel] No code to copy");
           return;
         }
 
         navigator.clipboard
           .writeText(code)
           .then(() => {
-            console.log("[ChatPanel] Code copied to clipboard successfully");
             // Show a brief success message
             const button = event.target;
             const originalText = button.textContent;
@@ -579,7 +565,6 @@
             }, 1000);
           })
           .catch((err) => {
-            console.error("[ChatPanel] Failed to copy code:", err);
             // Fallback: try to copy using document.execCommand
             try {
               const textArea = document.createElement("textarea");
@@ -588,18 +573,13 @@
               textArea.select();
               document.execCommand("copy");
               document.body.removeChild(textArea);
-              console.log("[ChatPanel] Code copied using fallback method");
             } catch (fallbackErr) {
-              console.error(
-                "[ChatPanel] Fallback copy also failed:",
-                fallbackErr
-              );
+              // Fallback copy also failed
             }
           });
       }
 
       function clearChatHistory() {
-        console.log("[ChatPanel] Clearing chat history");
         vscode.postMessage({
           type: "clearChatHistory",
         });
@@ -666,7 +646,6 @@
                 const code = decodeURIComponent(escape(atob(encodedCode)));
                 copyCode(code);
               } catch (error) {
-                console.error("Error decoding code:", error);
                 copyCode(encodedCode); // Fallback to encoded code
               }
             }
@@ -718,10 +697,6 @@
             break;
 
           case "reviewResults":
-            // This case is deprecated - review results are now handled by ReviewPanelProvider
-            console.warn(
-              "reviewResults case is deprecated. Review results should be handled by Review Panel."
-            );
             break;
 
           case "loadChatHistory":
@@ -760,34 +735,22 @@
             break;
 
           case "applySuccess":
-            console.log(
-              `Successfully applied code change to ${message.fileName} line ${message.lineNumber}`
-            );
             break;
 
           case "applyError":
-            console.error("Apply error:", message.message);
             break;
 
           case "violationStatusUpdated":
-            console.log(
-              `Violation status updated: ${message.reviewId}[${message.violationIndex}] -> ${message.status}`
-            );
             break;
 
           case "violationStatusUpdateSuccess":
-            console.log(
-              `Violation status update successful: ${message.reviewId}[${message.violationIndex}] -> ${message.status}`
-            );
             break;
 
           case "violationStatusUpdateError":
-            console.error("Violation status update error:", message.message);
             break;
 
           case "showMessage":
             // Show notification message
-            console.log(`${message.level}: ${message.message}`);
             break;
 
           case "error":

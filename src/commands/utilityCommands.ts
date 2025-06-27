@@ -11,7 +11,6 @@ export class UtilityCommands {
   public async showDebugOutput(): Promise<void> {
     try {
       getDebugOutputChannel().show();
-      Logger.logDebug(debugOutputChannel, `[Utility] Debug output shown`);
     } catch (error) {
       VSCodeUtils.handleError(error, "Showing debug output");
     }
@@ -33,8 +32,6 @@ export class UtilityCommands {
 
       const message = `LLM Provider: ${status.provider}\nEndpoint: ${status.endpoint}\nModel: ${status.model}\nAuth: ${status.authType}`;
       vscode.window.showInformationMessage(message);
-
-      Logger.logDebug(debugOutputChannel, `[Utility] Showed LLM status`, { status });
     } catch (error) {
       VSCodeUtils.handleError(error, "Showing LLM status");
     }
@@ -53,7 +50,6 @@ export class UtilityCommands {
 
         if (success) {
           VSCodeUtils.showSuccess("All saved violations cleared successfully.");
-          Logger.logDebug(debugOutputChannel, `[Utility] Cleared all saved violations`);
         } else {
           VSCodeUtils.showWarning("Failed to clear saved violations.");
         }
@@ -83,10 +79,6 @@ export class UtilityCommands {
       });
 
       await vscode.window.showTextDocument(document);
-
-      Logger.logDebug(debugOutputChannel, `[Utility] Viewed review history`, {
-        reviewCount: reviewResults.length
-      });
     } catch (error) {
       VSCodeUtils.handleError(error, "Viewing review history");
     }
@@ -106,8 +98,6 @@ export class UtilityCommands {
       const message = `Analytics:\nTotal Reviews: ${analytics.totalReviews}\nTotal Violations: ${analytics.totalViolations}\nCompleted: ${analytics.completedReviews}\nFailed: ${analytics.failedReviews}`;
 
       vscode.window.showInformationMessage(message);
-
-      Logger.logDebug(debugOutputChannel, `[Utility] Refreshed analytics`, analytics);
     } catch (error) {
       VSCodeUtils.handleError(error, "Refreshing analytics");
     }

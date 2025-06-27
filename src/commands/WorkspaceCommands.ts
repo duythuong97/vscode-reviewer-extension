@@ -1,7 +1,6 @@
 import * as vscode from "vscode";
-import { Logger, debugOutputChannel } from "../utils";
-import { WorkspaceIndexer } from "../services/workspace";
 import { VSCodeUtils } from "../utils/vscode";
+import { WorkspaceIndexer } from "../services/workspace";
 
 export class WorkspaceCommands {
   private static instance: WorkspaceCommands;
@@ -24,8 +23,6 @@ export class WorkspaceCommands {
    */
   public async indexWorkspaceOnOpen(): Promise<void> {
     try {
-      Logger.logDebug(debugOutputChannel, "[WorkspaceCommands] Starting workspace indexing on open");
-
       // Set progress callback
       this.indexer.setProgressCallback((progress) => {
         this.updateProgress(progress);
@@ -50,13 +47,10 @@ export class WorkspaceCommands {
         try {
           const index = await this.indexer.indexWorkspace(options);
 
-          Logger.logDebug(debugOutputChannel, `[WorkspaceCommands] Workspace indexed successfully. Found ${index.files.length} files`);
-
           // Show completion message
           VSCodeUtils.showInformation(`Workspace indexed successfully! Found ${index.files.length} files, ${index.statistics.totalFunctions} functions, ${index.statistics.totalClasses} classes`);
 
         } catch (error) {
-          Logger.logDebug(debugOutputChannel, "[WorkspaceCommands] Error during indexing:", error);
           VSCodeUtils.showWarning("Failed to index workspace. Some features may not work properly.");
         } finally {
           this.progressBar = null;
@@ -64,7 +58,7 @@ export class WorkspaceCommands {
       });
 
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, "[WorkspaceCommands] Error in indexWorkspaceOnOpen:", error);
+      // Error in indexWorkspaceOnOpen
     }
   }
 
@@ -77,8 +71,6 @@ export class WorkspaceCommands {
         VSCodeUtils.showWarning("Workspace indexing is already in progress");
         return;
       }
-
-      Logger.logDebug(debugOutputChannel, "[WorkspaceCommands] Starting manual workspace indexing");
 
       // Show options dialog
       const includeHidden = await vscode.window.showQuickPick(['Yes', 'No'], {
@@ -113,12 +105,9 @@ export class WorkspaceCommands {
         try {
           const index = await this.indexer.indexWorkspace(options);
 
-          Logger.logDebug(debugOutputChannel, `[WorkspaceCommands] Manual indexing completed. Found ${index.files.length} files`);
-
           VSCodeUtils.showInformation(`Workspace indexed successfully! Found ${index.files.length} files, ${index.statistics.totalFunctions} functions, ${index.statistics.totalClasses} classes`);
 
         } catch (error) {
-          Logger.logDebug(debugOutputChannel, "[WorkspaceCommands] Error during manual indexing:", error);
           VSCodeUtils.showWarning("Failed to index workspace");
         } finally {
           this.progressBar = null;
@@ -126,7 +115,7 @@ export class WorkspaceCommands {
       });
 
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, "[WorkspaceCommands] Error in indexWorkspace:", error);
+      // Error in indexWorkspace
     }
   }
 
@@ -142,14 +131,12 @@ export class WorkspaceCommands {
       }
 
       const filePath = activeEditor.document.uri.fsPath;
-      Logger.logDebug(debugOutputChannel, `[WorkspaceCommands] Refreshing index for file: ${filePath}`);
 
       await this.indexer.refreshFile(filePath);
 
       VSCodeUtils.showInformation("File index refreshed successfully");
 
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, "[WorkspaceCommands] Error refreshing current file:", error);
       VSCodeUtils.showWarning("Failed to refresh file index");
     }
   }
@@ -209,7 +196,6 @@ ${Object.entries(stats.languages).map(([lang, count]) => `- ${lang}: ${count} fi
       panel.webview.html = this.getWorkspaceInfoHtml(info, index);
 
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, "[WorkspaceCommands] Error showing workspace info:", error);
       VSCodeUtils.showWarning("Failed to show workspace information");
     }
   }
@@ -234,7 +220,6 @@ ${Object.entries(stats.languages).map(([lang, count]) => `- ${lang}: ${count} fi
       VSCodeUtils.showInformation("Workspace index saved successfully");
 
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, "[WorkspaceCommands] Error saving index:", error);
       VSCodeUtils.showWarning("Failed to save workspace index");
     }
   }
@@ -262,7 +247,6 @@ ${Object.entries(stats.languages).map(([lang, count]) => `- ${lang}: ${count} fi
       VSCodeUtils.showInformation(`Workspace index loaded successfully! Found ${index.files.length} files`);
 
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, "[WorkspaceCommands] Error loading index:", error);
       VSCodeUtils.showWarning("Failed to load workspace index");
     }
   }
@@ -284,7 +268,6 @@ ${Object.entries(stats.languages).map(([lang, count]) => `- ${lang}: ${count} fi
       }
 
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, "[WorkspaceCommands] Error clearing index:", error);
       VSCodeUtils.showWarning("Failed to clear workspace index");
     }
   }
@@ -313,7 +296,6 @@ ${Object.entries(stats.languages).map(([lang, count]) => `- ${lang}: ${count} fi
       this.showSearchResults(results, query);
 
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, "[WorkspaceCommands] Error searching workspace:", error);
       VSCodeUtils.showWarning("Failed to search workspace");
     }
   }

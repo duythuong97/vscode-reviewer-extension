@@ -1,0 +1,50 @@
+<div class="agent-workflow">
+    <div class="workflow-header">
+        <div class="workflow-title">🤖 AI Agent Workflow</div>
+        <div class="workflow-status {{workflow.status}}">{{workflow.status}}</div>
+    </div>
+
+    <div class="workflow-summary">{{workflow.summary}}</div>
+
+    <div class="steps-container">
+        {{#each workflow.steps}}
+        <div class="step-item {{#if (eq @index ../workflow.currentStep)}}current{{/if}} {{this.status}}">
+            <div class="step-number">{{add @index 1}}</div>
+
+            <div class="step-header">
+                <div class="step-title">{{this.title}}</div>
+                <div class="step-status {{this.status}}">{{this.status}}</div>
+            </div>
+
+            <div class="step-description">{{this.description}}</div>
+
+            <div class="step-command">
+                <strong>Command:</strong> {{this.command}}
+                {{#if this.parameters}}
+                <br><strong>Parameters:</strong> {{json this.parameters}}
+                {{/if}}
+            </div>
+            <div class="step-actions">
+                {{#if (eq this.status 'completed')}}
+                    <button class="step-rerun-btn" onclick="executeStep('{{this.id}}')">
+                    🔄 Re-run Step
+                    </button>
+                {{/if}}
+            </div>
+
+            {{#if this.result}}
+            <div class="step-result">
+                <strong>Result:</strong> {{json this.result}}
+            </div>
+            {{/if}}
+
+            {{#if this.error}}
+            <div class="step-error">
+                <strong>Error:</strong> {{this.error}}
+            </div>
+            {{/if}}
+        </div>
+
+        {{/each}}
+    </div>
+</div>

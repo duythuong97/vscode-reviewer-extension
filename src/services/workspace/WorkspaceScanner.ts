@@ -1,7 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
-import { Logger, debugOutputChannel } from "../../utils";
 import { WorkspaceFile, ProjectStructure } from "../../types";
 
 export class WorkspaceScanner {
@@ -39,15 +38,12 @@ export class WorkspaceScanner {
       }
 
       const workspacePath = workspaceFolders[0].uri.fsPath;
-      Logger.logDebug(debugOutputChannel, `[WorkspaceScanner] Scanning workspace: ${workspacePath}`);
 
       const files: WorkspaceFile[] = [];
       await this.scanDirectory(workspacePath, '', files);
 
-      Logger.logDebug(debugOutputChannel, `[WorkspaceScanner] Found ${files.length} files`);
       return files;
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[WorkspaceScanner] Error scanning workspace:`, error);
       throw error;
     }
   }
@@ -82,7 +78,7 @@ export class WorkspaceScanner {
         }
       }
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[WorkspaceScanner] Error scanning directory ${fullPath}:`, error);
+      // Error scanning directory
     }
   }
 
@@ -131,7 +127,6 @@ export class WorkspaceScanner {
         isHidden: name.startsWith('.')
       };
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[WorkspaceScanner] Error getting file info for ${fullPath}:`, error);
       throw error;
     }
   }

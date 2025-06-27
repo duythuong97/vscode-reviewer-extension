@@ -9,7 +9,7 @@ import {
   ProjectStructure,
   DependencyInfo,
   WorkspaceStatistics,
-  IndexingProgress
+  IndexingProgress,
 } from "../../types";
 import { WorkspaceScanner } from "./WorkspaceScanner";
 import { ASTParserFactory, BaseASTParser } from "./ASTParser";
@@ -43,7 +43,9 @@ export class WorkspaceIndexer {
   /**
    * Index toàn bộ workspace
    */
-  public async indexWorkspace(options: IndexingOptions = {}): Promise<WorkspaceIndex> {
+  public async indexWorkspace(
+    options: IndexingOptions = {}
+  ): Promise<WorkspaceIndex> {
     if (this.isIndexing) {
       throw new Error("Workspace indexing is already in progress");
     }
@@ -52,15 +54,13 @@ export class WorkspaceIndexer {
     const startTime = Date.now();
 
     try {
-      Logger.logDebug(debugOutputChannel, "[WorkspaceIndexer] Starting workspace indexing");
-
       // Phase 1: Scan files
       this.updateProgress({
         currentFile: "Scanning workspace...",
         totalFiles: 0,
         processedFiles: 0,
-        currentPhase: 'scanning',
-        percentage: 0
+        currentPhase: "scanning",
+        percentage: 0,
       });
 
       const files = await this.scanner.scanWorkspace();
@@ -68,15 +68,13 @@ export class WorkspaceIndexer {
       // Filter files based on options
       const filteredFiles = this.filterFiles(files, options);
 
-      Logger.logDebug(debugOutputChannel, `[WorkspaceIndexer] Found ${filteredFiles.length} files to process`);
-
       // Phase 2: Parse files
       this.updateProgress({
         currentFile: "Parsing files...",
         totalFiles: filteredFiles.length,
         processedFiles: 0,
-        currentPhase: 'parsing',
-        percentage: 0
+        currentPhase: "parsing",
+        percentage: 0,
       });
 
       const parsedFiles = await this.parseFiles(filteredFiles, options);
@@ -86,17 +84,18 @@ export class WorkspaceIndexer {
         currentFile: "Analyzing project structure...",
         totalFiles: filteredFiles.length,
         processedFiles: filteredFiles.length,
-        currentPhase: 'analyzing',
-        percentage: 90
+        currentPhase: "analyzing",
+        percentage: 90,
       });
 
-      const projectStructure = this.scanner.analyzeProjectStructure(filteredFiles);
+      const projectStructure =
+        this.scanner.analyzeProjectStructure(filteredFiles);
       const dependencies = await this.analyzeDependencies(filteredFiles);
       const statistics = this.calculateStatistics(filteredFiles, parsedFiles);
 
       // Create workspace index
       const workspaceFolders = vscode.workspace.workspaceFolders;
-      const workspacePath = workspaceFolders?.[0]?.uri.fsPath || '';
+      const workspacePath = workspaceFolders?.[0]?.uri.fsPath || "";
 
       this.currentIndex = {
         id: this.generateIndexId(),
@@ -107,22 +106,19 @@ export class WorkspaceIndexer {
         dependencies,
         statistics,
         createdAt: startTime,
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
       };
 
       this.updateProgress({
         currentFile: "Indexing complete",
         totalFiles: filteredFiles.length,
         processedFiles: filteredFiles.length,
-        currentPhase: 'complete',
-        percentage: 100
+        currentPhase: "complete",
+        percentage: 100,
       });
 
-      Logger.logDebug(debugOutputChannel, `[WorkspaceIndexer] Indexing completed in ${Date.now() - startTime}ms`);
       return this.currentIndex;
-
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, "[WorkspaceIndexer] Error during indexing:", error);
       throw error;
     } finally {
       this.isIndexing = false;
@@ -132,8 +128,11 @@ export class WorkspaceIndexer {
   /**
    * Lọc files dựa trên options
    */
-  private filterFiles(files: WorkspaceFile[], options: IndexingOptions): WorkspaceFile[] {
-    return files.filter(file => {
+  private filterFiles(
+    files: WorkspaceFile[],
+    options: IndexingOptions
+  ): WorkspaceFile[] {
+    return files.filter((file) => {
       // Skip hidden files if not included
       if (!options.includeHiddenFiles && file.isHidden) {
         return false;
@@ -160,33 +159,38 @@ export class WorkspaceIndexer {
   /**
    * Parse tất cả files
    */
-  private async parseFiles(files: WorkspaceFile[], options: IndexingOptions): Promise<ParsedFile[]> {
+  private async parseFiles(
+    files: WorkspaceFile[],
+    options: IndexingOptions
+  ): Promise<ParsedFile[]> {
     const parsedFiles: ParsedFile[] = [];
     const concurrency = options.concurrency || 5;
     const batchSize = Math.ceil(files.length / concurrency);
 
     for (let i = 0; i < files.length; i += batchSize) {
       const batch = files.slice(i, i + batchSize);
-      const batchPromises = batch.map(file => this.parseFile(file, options));
+      const batchPromises = batch.map((file) => this.parseFile(file, options));
 
       const batchResults = await Promise.allSettled(batchPromises);
 
       for (let j = 0; j < batchResults.length; j++) {
         const result = batchResults[j];
-        if (result.status === 'fulfilled') {
+        if (result.status === "fulfilled") {
           parsedFiles.push(result.value);
         } else {
-          Logger.logDebug(debugOutputChannel, `[WorkspaceIndexer] Failed to parse ${batch[j].path}:`, result.reason);
+          // Failed to parse file
         }
       }
 
       // Update progress
       this.updateProgress({
-        currentFile: `Parsing ${files[Math.min(i + batchSize, files.length - 1)].name}...`,
+        currentFile: `Parsing ${
+          files[Math.min(i + batchSize, files.length - 1)].name
+        }...`,
         totalFiles: files.length,
         processedFiles: Math.min(i + batchSize, files.length),
-        currentPhase: 'parsing',
-        percentage: Math.round((i + batchSize) / files.length * 80)
+        currentPhase: "parsing",
+        percentage: Math.round(((i + batchSize) / files.length) * 80),
       });
     }
 
@@ -196,14 +200,17 @@ export class WorkspaceIndexer {
   /**
    * Parse một file cụ thể
    */
-  private async parseFile(file: WorkspaceFile, options: IndexingOptions): Promise<ParsedFile> {
+  private async parseFile(
+    file: WorkspaceFile,
+    options: IndexingOptions
+  ): Promise<ParsedFile> {
     try {
       const parser = ASTParserFactory.getParser(file);
 
       if (parser) {
         const parserOptions = {
           maxFileSize: options.maxFileSize,
-          timeout: options.parseTimeout
+          timeout: options.parseTimeout,
         };
 
         const parserInstance = new (parser.constructor as any)(parserOptions);
@@ -221,11 +228,10 @@ export class WorkspaceIndexer {
           dependencies: [],
           complexity: 0,
           linesOfCode: 0,
-          commentLines: 0
+          commentLines: 0,
         };
       }
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[WorkspaceIndexer] Error parsing file ${file.path}:`, error);
       return {
         file,
         imports: [],
@@ -238,7 +244,7 @@ export class WorkspaceIndexer {
         complexity: 0,
         linesOfCode: 0,
         commentLines: 0,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
@@ -246,52 +252,65 @@ export class WorkspaceIndexer {
   /**
    * Phân tích dependencies
    */
-  private async analyzeDependencies(files: WorkspaceFile[]): Promise<DependencyInfo> {
+  private async analyzeDependencies(
+    files: WorkspaceFile[]
+  ): Promise<DependencyInfo> {
     const dependencies: DependencyInfo = {
       dependencies: [],
       devDependencies: [],
       peerDependencies: [],
       scripts: {},
       frameworks: [],
-      buildTools: []
+      buildTools: [],
     };
 
     try {
       // Find package.json
-      const packageJsonFile = files.find(f => f.name === 'package.json');
+      const packageJsonFile = files.find((f) => f.name === "package.json");
       if (packageJsonFile) {
-        const content = await fs.promises.readFile(packageJsonFile.path, 'utf-8');
+        const content = await fs.promises.readFile(
+          packageJsonFile.path,
+          "utf-8"
+        );
         const packageJson = JSON.parse(content);
 
         dependencies.packageJson = packageJson;
         dependencies.dependencies = Object.keys(packageJson.dependencies || {});
-        dependencies.devDependencies = Object.keys(packageJson.devDependencies || {});
-        dependencies.peerDependencies = Object.keys(packageJson.peerDependencies || {});
+        dependencies.devDependencies = Object.keys(
+          packageJson.devDependencies || {}
+        );
+        dependencies.peerDependencies = Object.keys(
+          packageJson.peerDependencies || {}
+        );
         dependencies.scripts = packageJson.scripts || {};
 
         // Detect frameworks and build tools
         const allDeps = [
           ...dependencies.dependencies,
-          ...dependencies.devDependencies
+          ...dependencies.devDependencies,
         ];
 
         // Framework detection
-        if (allDeps.includes('react')) dependencies.frameworks.push('React');
-        if (allDeps.includes('vue')) dependencies.frameworks.push('Vue');
-        if (allDeps.includes('angular')) dependencies.frameworks.push('Angular');
-        if (allDeps.includes('express')) dependencies.frameworks.push('Express');
-        if (allDeps.includes('next')) dependencies.frameworks.push('Next.js');
-        if (allDeps.includes('nuxt')) dependencies.frameworks.push('Nuxt.js');
+        if (allDeps.includes("react")) dependencies.frameworks.push("React");
+        if (allDeps.includes("vue")) dependencies.frameworks.push("Vue");
+        if (allDeps.includes("angular"))
+          dependencies.frameworks.push("Angular");
+        if (allDeps.includes("express"))
+          dependencies.frameworks.push("Express");
+        if (allDeps.includes("next")) dependencies.frameworks.push("Next.js");
+        if (allDeps.includes("nuxt")) dependencies.frameworks.push("Nuxt.js");
 
         // Build tool detection
-        if (allDeps.includes('webpack')) dependencies.buildTools.push('Webpack');
-        if (allDeps.includes('vite')) dependencies.buildTools.push('Vite');
-        if (allDeps.includes('rollup')) dependencies.buildTools.push('Rollup');
-        if (allDeps.includes('parcel')) dependencies.buildTools.push('Parcel');
-        if (allDeps.includes('esbuild')) dependencies.buildTools.push('esbuild');
+        if (allDeps.includes("webpack"))
+          dependencies.buildTools.push("Webpack");
+        if (allDeps.includes("vite")) dependencies.buildTools.push("Vite");
+        if (allDeps.includes("rollup")) dependencies.buildTools.push("Rollup");
+        if (allDeps.includes("parcel")) dependencies.buildTools.push("Parcel");
+        if (allDeps.includes("esbuild"))
+          dependencies.buildTools.push("esbuild");
       }
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, "[WorkspaceIndexer] Error analyzing dependencies:", error);
+      // Error analyzing dependencies
     }
 
     return dependencies;
@@ -300,7 +319,10 @@ export class WorkspaceIndexer {
   /**
    * Tính toán statistics
    */
-  private calculateStatistics(files: WorkspaceFile[], parsedFiles: ParsedFile[]): WorkspaceStatistics {
+  private calculateStatistics(
+    files: WorkspaceFile[],
+    parsedFiles: ParsedFile[]
+  ): WorkspaceStatistics {
     const stats: WorkspaceStatistics = {
       totalFiles: files.length,
       totalLines: 0,
@@ -312,13 +334,15 @@ export class WorkspaceIndexer {
       languages: {},
       fileTypes: {},
       largestFiles: [],
-      mostComplexFiles: []
+      mostComplexFiles: [],
     };
 
     // Count languages and file types
     for (const file of files) {
-      stats.languages[file.language] = (stats.languages[file.language] || 0) + 1;
-      stats.fileTypes[file.extension] = (stats.fileTypes[file.extension] || 0) + 1;
+      stats.languages[file.language] =
+        (stats.languages[file.language] || 0) + 1;
+      stats.fileTypes[file.extension] =
+        (stats.fileTypes[file.extension] || 0) + 1;
     }
 
     // Calculate totals from parsed files
@@ -332,7 +356,8 @@ export class WorkspaceIndexer {
       totalComplexity += parsedFile.complexity;
     }
 
-    stats.averageComplexity = parsedFiles.length > 0 ? totalComplexity / parsedFiles.length : 0;
+    stats.averageComplexity =
+      parsedFiles.length > 0 ? totalComplexity / parsedFiles.length : 0;
 
     // Find largest files
     stats.largestFiles = [...files]
@@ -341,7 +366,7 @@ export class WorkspaceIndexer {
 
     // Find most complex files
     stats.mostComplexFiles = [...parsedFiles]
-      .filter(p => !p.error)
+      .filter((p) => !p.error)
       .sort((a, b) => b.complexity - a.complexity)
       .slice(0, 10);
 
@@ -367,7 +392,9 @@ export class WorkspaceIndexer {
   /**
    * Set progress callback
    */
-  public setProgressCallback(callback: (progress: IndexingProgress) => void): void {
+  public setProgressCallback(
+    callback: (progress: IndexingProgress) => void
+  ): void {
     this.progressCallback = callback;
   }
 
@@ -394,7 +421,7 @@ export class WorkspaceIndexer {
     }
 
     try {
-      const file = this.currentIndex.files.find(f => f.path === filePath);
+      const file = this.currentIndex.files.find((f) => f.path === filePath);
       if (!file) {
         return;
       }
@@ -408,7 +435,9 @@ export class WorkspaceIndexer {
       const parser = ASTParserFactory.getParser(file);
       if (parser) {
         const parsedFile = await parser.parseFile(file);
-        const existingIndex = this.currentIndex.parsedFiles.findIndex(p => p.file.path === filePath);
+        const existingIndex = this.currentIndex.parsedFiles.findIndex(
+          (p) => p.file.path === filePath
+        );
 
         if (existingIndex >= 0) {
           this.currentIndex.parsedFiles[existingIndex] = parsedFile;
@@ -424,7 +453,7 @@ export class WorkspaceIndexer {
         this.currentIndex.updatedAt = Date.now();
       }
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[WorkspaceIndexer] Error refreshing file ${filePath}:`, error);
+      // Error refreshing file
     }
   }
 
@@ -444,10 +473,11 @@ export class WorkspaceIndexer {
     }
 
     try {
-      await fs.promises.writeFile(filePath, JSON.stringify(this.currentIndex, null, 2));
-      Logger.logDebug(debugOutputChannel, `[WorkspaceIndexer] Index saved to ${filePath}`);
+      await fs.promises.writeFile(
+        filePath,
+        JSON.stringify(this.currentIndex, null, 2)
+      );
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[WorkspaceIndexer] Error saving index:`, error);
       throw error;
     }
   }
@@ -457,15 +487,13 @@ export class WorkspaceIndexer {
    */
   public async loadIndex(filePath: string): Promise<WorkspaceIndex> {
     try {
-      const content = await fs.promises.readFile(filePath, 'utf-8');
+      const content = await fs.promises.readFile(filePath, "utf-8");
       this.currentIndex = JSON.parse(content);
-      Logger.logDebug(debugOutputChannel, `[WorkspaceIndexer] Index loaded from ${filePath}`);
       if (!this.currentIndex) {
         throw new Error("Failed to load index from file");
       }
       return this.currentIndex;
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[WorkspaceIndexer] Error loading index:`, error);
       throw error;
     }
   }

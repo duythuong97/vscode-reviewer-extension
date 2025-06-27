@@ -1,11 +1,10 @@
 import * as vscode from "vscode";
-import { Logger, debugOutputChannel } from "../../utils";
+
 import { TemplateRenderer } from "../../utils/template/TemplateRenderer";
 import * as path from "path";
 import * as fs from "fs";
 import { marked } from "marked";
 import { ViolationStorageManager } from "../../services/storage/managers/ViolationStorageManager";
-import { AgentWorkflow, AgentStepResult } from "../../types";
 
 export class ReviewPanelProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "aiReviewer.reviewPanel";
@@ -21,16 +20,6 @@ export class ReviewPanelProvider implements vscode.WebviewViewProvider {
     context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken
   ) {
-    Logger.logDebug(
-      debugOutputChannel,
-      `[ReviewPanel] Resolving webview view:`,
-      {
-        viewType: webviewView.viewType,
-        visible: webviewView.visible,
-        context: context,
-      }
-    );
-
     this._view = webviewView;
 
     webviewView.webview.options = {
@@ -45,9 +34,14 @@ export class ReviewPanelProvider implements vscode.WebviewViewProvider {
       "reviewPanel.html"
     );
     let htmlContent = "";
+    const cssPath = path.join(this._extensionUri.fsPath, "media", "css");
+    const cssUri = webviewView.webview.asWebviewUri(
+      vscode.Uri.file(path.join(cssPath, "agentPanel.css"))
+    );
 
     try {
       htmlContent = fs.readFileSync(htmlPath, "utf8");
+      htmlContent = htmlContent.replace("{{styleUri}}", cssUri.toString());
     } catch (error) {
       console.error("Error reading reviewPanel.html:", error);
       htmlContent = this.getFallbackHtml();
@@ -102,11 +96,6 @@ export class ReviewPanelProvider implements vscode.WebviewViewProvider {
               });
             }
           } catch (error) {
-            Logger.logDebug(
-              debugOutputChannel,
-              `[ReviewPanel] Error updating violation status:`,
-              error
-            );
             webviewView.webview.postMessage({
               type: "violationStatusUpdateError",
               message: `Error updating violation status: ${
@@ -125,11 +114,6 @@ export class ReviewPanelProvider implements vscode.WebviewViewProvider {
               originalCode
             );
           } catch (error) {
-            Logger.logDebug(
-              debugOutputChannel,
-              `[ReviewPanel] Error applying code change:`,
-              error
-            );
             webviewView.webview.postMessage({
               type: "applyError",
               message: `Failed to apply code change: ${
@@ -143,11 +127,6 @@ export class ReviewPanelProvider implements vscode.WebviewViewProvider {
             const { fileName } = data;
             await this.openFile(fileName);
           } catch (error) {
-            Logger.logDebug(
-              debugOutputChannel,
-              `[ReviewPanel] Error opening file:`,
-              error
-            );
             webviewView.webview.postMessage({
               type: "error",
               content: `Error opening file: ${
@@ -193,17 +172,7 @@ export class ReviewPanelProvider implements vscode.WebviewViewProvider {
             await vscode.commands.executeCommand(
               "ai-reviewer.reReviewWithFeedback"
             );
-
-            Logger.logDebug(
-              debugOutputChannel,
-              `[ChatPanel] Triggered re-review for ${fileName}`
-            );
           } catch (error) {
-            Logger.logDebug(
-              debugOutputChannel,
-              `[ChatPanel] Error triggering re-review:`,
-              error
-            );
             webviewView.webview.postMessage({
               type: "error",
               content: `Error triggering re-review: ${
@@ -211,154 +180,6 @@ export class ReviewPanelProvider implements vscode.WebviewViewProvider {
               }`,
             });
           }
-          break;
-        case "executeCurrentStep":
-          try {
-            await vscode.commands.executeCommand("ai-reviewer.executeCurrentStep");
-          } catch (error) {
-            Logger.logDebug(
-              debugOutputChannel,
-              `[ReviewPanel] Error executing current step:`,
-              error
-            );
-            webviewView.webview.postMessage({
-              type: "error",
-              content: `Error executing current step: ${
-                error instanceof Error ? error.message : "Unknown error"
-              }`,
-            });
-          }
-          break;
-        case "executeStep":
-          try {
-            const { stepId } = data;
-            await vscode.commands.executeCommand("ai-reviewer.executeStep", stepId);
-          } catch (error) {
-            Logger.logDebug(
-              debugOutputChannel,
-              `[ReviewPanel] Error executing step ${data.stepId}:`,
-              error
-            );
-            webviewView.webview.postMessage({
-              type: "error",
-              content: `Error executing step: ${
-                error instanceof Error ? error.message : "Unknown error"
-              }`,
-            });
-          }
-          break;
-        case "nextStep":
-          try {
-            await vscode.commands.executeCommand("ai-reviewer.nextStep");
-          } catch (error) {
-            Logger.logDebug(
-              debugOutputChannel,
-              `[ReviewPanel] Error moving to next step:`,
-              error
-            );
-            webviewView.webview.postMessage({
-              type: "error",
-              content: `Error moving to next step: ${
-                error instanceof Error ? error.message : "Unknown error"
-              }`,
-            });
-          }
-          break;
-        case "executeFullWorkflow":
-          try {
-            await vscode.commands.executeCommand("ai-reviewer.executeFullWorkflow");
-          } catch (error) {
-            Logger.logDebug(
-              debugOutputChannel,
-              `[ReviewPanel] Error executing full workflow:`,
-              error
-            );
-            webviewView.webview.postMessage({
-              type: "error",
-              content: `Error executing full workflow: ${
-                error instanceof Error ? error.message : "Unknown error"
-              }`,
-            });
-          }
-          break;
-        case "clearWorkflow":
-          try {
-            await vscode.commands.executeCommand("ai-reviewer.clearWorkflow");
-          } catch (error) {
-            Logger.logDebug(
-              debugOutputChannel,
-              `[ReviewPanel] Error clearing workflow:`,
-              error
-            );
-            webviewView.webview.postMessage({
-              type: "error",
-              content: `Error clearing workflow: ${
-                error instanceof Error ? error.message : "Unknown error"
-              }`,
-            });
-          }
-          break;
-        case "createAgentWorkflow":
-          try {
-            await vscode.commands.executeCommand("ai-reviewer.createAgentWorkflow");
-          } catch (error) {
-            Logger.logDebug(
-              debugOutputChannel,
-              `[ReviewPanel] Error creating agent workflow:`,
-              error
-            );
-            webviewView.webview.postMessage({
-              type: "error",
-              content: `Error creating agent workflow: ${
-                error instanceof Error ? error.message : "Unknown error"
-              }`,
-            });
-          }
-          break;
-        case "error":
-          // Send error to webview
-          webviewView.webview.postMessage({
-            type: "error",
-            content: data.content
-          });
-          break;
-        case "agentWorkflow":
-          console.log('[ReviewPanel] Received agent workflow:', data.workflow);
-          // Send to webview to handle
-          webviewView.webview.postMessage({
-            type: "agentWorkflow",
-            workflow: data.workflow
-          });
-          break;
-        case "agentStepResult":
-          console.log('[ReviewPanel] Received agent step result:', data.result);
-          // Send to webview to handle
-          webviewView.webview.postMessage({
-            type: "agentStepResult",
-            result: data.result
-          });
-          break;
-        case "updateAgentWorkflow":
-          console.log('[ReviewPanel] Received update agent workflow:', data.workflow);
-          // Send to webview to handle
-          webviewView.webview.postMessage({
-            type: "updateAgentWorkflow",
-            workflow: data.workflow
-          });
-          break;
-        case "completeAgentWorkflow":
-          console.log('[ReviewPanel] Agent workflow completed');
-          // Send to webview to handle
-          webviewView.webview.postMessage({
-            type: "completeAgentWorkflow"
-          });
-          break;
-        case "clearAgentWorkflow":
-          console.log('[ReviewPanel] Agent workflow cleared');
-          // Send to webview to handle
-          webviewView.webview.postMessage({
-            type: "clearAgentWorkflow"
-          });
           break;
       }
     });
@@ -368,267 +189,167 @@ export class ReviewPanelProvider implements vscode.WebviewViewProvider {
     reviewData: any,
     fileName: string
   ): Promise<void> {
-    let renderedHtml = "";
-    let templateData: any = {};
-
-    try {
-      // Ensure review panel is visible and focused
-      await this.ensureReviewPanelVisible();
-
-      // Longer delay to ensure webview is fully ready
-      await new Promise((resolve) => setTimeout(resolve, 300));
-
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Sending review results for ${fileName}:`,
-        {
-          violationsCount: reviewData.violations?.length || 0,
-          hasSummary: !!reviewData.summary,
-          reviewId: reviewData.id,
-        }
-      );
-
-      // Process violations for template
-      const violations = (reviewData.violations || []).map(
-        (violation: any) => ({
-          ...violation,
-          originalCode: violation.originalCode
-            ? marked.parse(violation.originalCode)
-            : "",
-        })
-      );
-      const summary = reviewData.summary
-        ? marked.parse(reviewData.summary)
-        : "";
-      const feedbackContext = reviewData.feedbackContext
-        ? marked.parse(reviewData.feedbackContext)
-        : "";
-
-      // Prepare data for template
-      templateData = {
-        fileName: fileName,
-        violations: violations,
-        summary: summary,
-        feedbackContext: feedbackContext,
-        isSavedResult: false,
-        reviewId: reviewData.id || "unknown",
-        stats: {
-          total: violations.length,
-          high: violations.filter((v: any) => v.severity === "high").length,
-          medium: violations.filter((v: any) => v.severity === "medium").length,
-          low: violations.filter((v: any) => v.severity === "low").length,
-        },
-      };
-
-      // Process violations for template
-      templateData.violations = templateData.violations.map(
-        (violation: any) => ({
-          ...violation,
-          status: violation.status || "pending",
-          statusClass:
-            violation.status === "approved"
-              ? "approved"
-              : violation.status === "rejected"
-              ? "rejected"
-              : "pending",
-          originalCode: violation.originalCode || "",
-          escapedSuggestion: (violation.suggestion || "").replace(/'/g, "\\'"),
-          escapedOriginalCode: (violation.originalCode || "").replace(
-            /'/g,
-            "\\'"
-          ),
-          showApproveReject:
-            !violation.status ||
-            violation.status === "pending" ||
-            violation.status === "undefined" ||
-            violation.status === "null",
-        })
-      );
-
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Template data prepared:`,
-        {
-          fileName: templateData.fileName,
-          violationsCount: templateData.violations.length,
-          stats: templateData.stats,
-          hasSummary: !!templateData.summary,
-        }
-      );
-
-      // Get template path
-      const templatePath = path.join(
-        this._extensionUri.fsPath,
-        "media",
-        "reviewResultsTemplate.html"
-      );
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Template path:`,
-        templatePath
-      );
-
-      // Render template
-      renderedHtml = TemplateRenderer.renderTemplate(
-        templatePath,
-        templateData
-      );
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Template rendered successfully, length:`,
-        renderedHtml.length
-      );
-    } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Error rendering review results:`,
-        { error, reviewData, templateData }
-      );
-      renderedHtml = `<div class='error'>Error rendering review results: ${
-        error instanceof Error ? error.message : error
-      }</div>`;
+    if (!this._view) {
+      return;
     }
 
-    // Send the rendered review results with retry mechanism
+    await this.ensureReviewPanelVisible();
+
+    // Process violations and create HTML
+    const violations = reviewData.violations || [];
+    const summary = reviewData.summary || "No summary available";
+
+    // Create violation HTML
+    const violationHtml = violations
+      .map((violation: any, index: number) => {
+        const severityClass = violation.severity || "medium";
+        const status = violation.status || "pending";
+        const statusClass =
+          status === "approved"
+            ? "approved"
+            : status === "rejected"
+            ? "rejected"
+            : "pending";
+
+        return `
+          <div class="violation-item ${severityClass} ${statusClass}" data-violation-index="${index}">
+            <div class="violation-header">
+              <span class="severity-badge ${severityClass}">${
+          violation.severity || "medium"
+        }</span>
+              <span class="line-number">Line ${violation.line}</span>
+              <span class="status-badge ${statusClass}">${status}</span>
+            </div>
+            <div class="violation-message">${marked(violation.message)}</div>
+            ${
+              violation.originalCode
+                ? `
+              <div class="code-block">
+                <div class="code-header">Original Code:</div>
+                <pre><code>${this.escapeHtml(
+                  violation.originalCode
+                )}</code></pre>
+              </div>
+            `
+                : ""
+            }
+            ${
+              violation.suggestion
+                ? `
+              <div class="code-block suggestion">
+                <div class="code-header">Suggestion:</div>
+                <pre><code>${this.escapeHtml(violation.suggestion)}</code></pre>
+                <button class="apply-button" onclick="applyCodeChange('${fileName}', ${
+                    violation.line
+                  }, \`${this.escapeHtml(
+                    violation.suggestion
+                  )}\`, \`${this.escapeHtml(
+                    violation.originalCode || ""
+                  )}\`)">Apply Fix</button>
+              </div>
+            `
+                : ""
+            }
+            <div class="violation-actions">
+              <button class="action-button approve" onclick="updateViolationStatus('${
+                reviewData.id || "unknown"
+              }', ${index}, 'approved')">Approve</button>
+              <button class="action-button reject" onclick="updateViolationStatus('${
+                reviewData.id || "unknown"
+              }', ${index}, 'rejected')">Reject</button>
+              <button class="action-button note" onclick="addViolationNote('${
+                reviewData.id || "unknown"
+              }', ${index})">Add Note</button>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    // Create the complete review HTML
+    const reviewHtml = `
+      <div class="review-container">
+        <div class="review-header">
+          <h3>Review Results for ${fileName}</h3>
+          <div class="review-summary">
+            <span class="violation-count">${
+              violations.length
+            } violations found</span>
+            <span class="severity-breakdown">
+              ${this.getSeverityBreakdown(violations)}
+            </span>
+          </div>
+        </div>
+        <div class="review-summary-text">
+          <h4>Summary:</h4>
+          <div class="summary-content">${marked(summary)}</div>
+        </div>
+        <div class="violations-list">
+          ${violationHtml}
+        </div>
+      </div>
+    `;
+
+    // Send the review results to the webview
     await this.sendMessageWithRetry({
       type: "reviewResults",
-      reviewData: reviewData,
+      content: reviewHtml,
       fileName: fileName,
-      renderedHtml: renderedHtml,
+      violations: violations,
+      summary: summary,
     });
-
-    Logger.logDebug(
-      debugOutputChannel,
-      `[ReviewPanel] Sent review results for ${fileName}`
-    );
   }
 
   private async sendMessageWithRetry(
     message: any,
     maxRetries: number = 3
   ): Promise<void> {
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    if (!this._view) {
+      return;
+    }
+
+    for (let i = 0; i < maxRetries; i++) {
       try {
-        Logger.logDebug(
-          debugOutputChannel,
-          `[ReviewPanel] Attempt ${attempt}/${maxRetries} to send message:`,
-          {
-            hasView: !!this._view,
-            isVisible: this._view?.visible,
-            webviewReady: !!this._view?.webview,
-            messageType: message.type,
-          }
-        );
-
-        if (!this._view?.webview) {
-          throw new Error("Webview not available");
-        }
-
         this._view.webview.postMessage(message);
-
-        Logger.logDebug(
-          debugOutputChannel,
-          `[ReviewPanel] Message sent successfully on attempt ${attempt}`
-        );
-        return; // Success, exit retry loop
+        return;
       } catch (error) {
-        Logger.logDebug(
-          debugOutputChannel,
-          `[ReviewPanel] Attempt ${attempt} failed:`,
-          error
-        );
-
-        if (attempt === maxRetries) {
-          Logger.logDebug(
-            debugOutputChannel,
-            `[ReviewPanel] All ${maxRetries} attempts failed to send message`
-          );
-          throw error;
-        }
-
-        // Wait before retry (exponential backoff)
-        const delay = Math.min(100 * Math.pow(2, attempt - 1), 1000);
-        await new Promise((resolve) => setTimeout(resolve, delay));
-
-        // Try to ensure panel is visible again before retry
-        if (attempt < maxRetries) {
-          try {
-            await this.ensureReviewPanelVisible();
-            await new Promise((resolve) => setTimeout(resolve, 200));
-          } catch (focusError) {
-            Logger.logDebug(
-              debugOutputChannel,
-              `[ReviewPanel] Failed to refocus panel on attempt ${attempt}:`,
-              focusError
-            );
-          }
+        if (i === maxRetries - 1) {
+          console.error("Failed to send message after retries:", error);
+        } else {
+          await new Promise((resolve) => setTimeout(resolve, 100 * (i + 1)));
         }
       }
     }
   }
 
   public async loadReviewResults(): Promise<void> {
+    if (!this._view) {
+      return;
+    }
+
     try {
-      if (!this._view) {
-        Logger.logDebug(
-          debugOutputChannel,
-          `[ReviewPanel] No webview available for loadReviewResults`
-        );
-        return;
-      }
-
-      const reviewResults =
-        await this.violationStorageManager.loadReviewResults();
-
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Loaded review results from storage:`,
-        {
-          count: reviewResults.length,
-          results: reviewResults.map((r) => ({
-            id: r.id,
-            file: r.file,
-            violationsCount: r.violations?.length || 0,
-            hasSummary: !!r.summary,
-            timestamp: r.timestamp,
-          })),
-        }
-      );
-
+      const results = await this.violationStorageManager.loadReviewResults();
       await this.sendMessageWithRetry({
-        type: "loadReviewResults",
-        reviewResults: reviewResults,
+        type: "reviewHistory",
+        results: results,
       });
-
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Sent ${reviewResults.length} review results to webview`
-      );
     } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Failed to load review results:`,
-        error
-      );
+      console.error("Error loading review results:", error);
     }
   }
 
   public async clearReviewPanel(): Promise<void> {
-    try {
-      this._view?.webview.postMessage({
-        type: "clearReviewPanel",
-      });
-    } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Failed to clear review panel:`,
-        error
-      );
+    if (!this._view) {
+      return;
     }
+
+    await this.sendMessageWithRetry({
+      type: "clearReviewPanel",
+    });
   }
 
   public isWebviewAvailable(): boolean {
-    return !!this._view;
+    return this._view !== undefined;
   }
 
   private async updateViolationStatus(
@@ -644,24 +365,9 @@ export class ReviewPanelProvider implements vscode.WebviewViewProvider {
         status,
         note
       );
-
-      if (success) {
-        this._view?.webview.postMessage({
-          type: "violationStatusUpdated",
-          reviewId: reviewId,
-          violationIndex: violationIndex,
-          status: status,
-          note: note,
-        });
-      }
-
       return success;
     } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Failed to update violation status:`,
-        error
-      );
+      console.error("Error updating violation status:", error);
       return false;
     }
   }
@@ -673,69 +379,34 @@ export class ReviewPanelProvider implements vscode.WebviewViewProvider {
     originalCode: string
   ): Promise<void> {
     try {
-      const vscode = require("vscode");
-      const path = require("path");
-      const workspaceFolders = vscode.workspace.workspaceFolders;
-      let fullPath = fileName;
-      if (workspaceFolders && workspaceFolders.length > 0) {
-        if (!path.isAbsolute(fileName)) {
-          fullPath = path.join(workspaceFolders[0].uri.fsPath, fileName);
-        }
+      // Find the file in the workspace
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        throw new Error("No workspace folder found");
       }
-      const uri = vscode.Uri.file(fullPath);
-      const document = await vscode.workspace.openTextDocument(uri);
-      const editor = await vscode.window.showTextDocument(document, {
-        preview: false,
+
+      const filePath = path.join(workspaceFolder.uri.fsPath, fileName);
+      const document = await vscode.workspace.openTextDocument(filePath);
+      const editor = await vscode.window.showTextDocument(document);
+
+      // Find the line to replace
+      const line = document.lineAt(lineNumber - 1);
+      const range = new vscode.Range(line.range.start, line.range.end);
+
+      // Apply the edit
+      await editor.edit((editBuilder) => {
+        editBuilder.replace(range, newCode);
       });
 
-      // Tìm vị trí đoạn code gốc trong toàn bộ file
-      const fileText = document.getText();
-      const originalCodeTrimmed = originalCode.trim();
-      const newCodeTrimmed = newCode.trim();
-
-      const startIdx = fileText.indexOf(originalCodeTrimmed);
-
-      if (originalCode && startIdx === -1) {
-        vscode.window.showWarningMessage(
-          `Original code does not match anywhere in ${fileName}.`
-        );
-        return;
-      }
-
-      if (startIdx !== -1) {
-        const endIdx = startIdx + originalCodeTrimmed.length;
-        const startPos = document.positionAt(startIdx);
-        const endPos = document.positionAt(endIdx);
-
-        await editor.edit((editBuilder: import("vscode").TextEditorEdit) => {
-          editBuilder.replace(new vscode.Range(startPos, endPos), newCodeTrimmed);
-        });
-
-        // Scroll tới dòng sau khi apply fix thành công
-        const targetLine = startPos.line;
-        const targetPosition = new vscode.Position(targetLine, 0);
-
-        // Reveal the line in the editor
-        editor.revealRange(
-          new vscode.Range(targetPosition, targetPosition),
-          vscode.TextEditorRevealType.InCenter
-        );
-
-        // Set cursor position to the line
-        editor.selection = new vscode.Selection(targetPosition, targetPosition);
-
-        vscode.window.showInformationMessage(
-          `Code change applied to ${fileName} at line ${targetLine + 1} and scrolled to position`
-        );
-      } else {
-        vscode.window.showWarningMessage(
-          `Original code does not match anywhere in ${fileName}.`
-        );
-      }
+      // Show success message
+      vscode.window.showInformationMessage(
+        `Applied code change to ${fileName} at line ${lineNumber}`
+      );
     } catch (error) {
+      console.error("Error applying code change:", error);
       vscode.window.showErrorMessage(
         `Failed to apply code change: ${
-          error instanceof Error ? error.message : error
+          error instanceof Error ? error.message : "Unknown error"
         }`
       );
     }
@@ -743,196 +414,85 @@ export class ReviewPanelProvider implements vscode.WebviewViewProvider {
 
   private async openFile(fileName: string): Promise<void> {
     try {
-      const vscode = require("vscode");
-      const path = require("path");
-      const workspaceFolders = vscode.workspace.workspaceFolders;
-      let fullPath = fileName;
-      if (workspaceFolders && workspaceFolders.length > 0) {
-        // Nếu fileName đã là path tuyệt đối thì giữ nguyên, nếu không thì ghép với workspace
-        if (!path.isAbsolute(fileName)) {
-          fullPath = path.join(workspaceFolders[0].uri.fsPath, fileName);
-        }
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        throw new Error("No workspace folder found");
       }
-      const uri = vscode.Uri.file(fullPath);
-      await vscode.window.showTextDocument(uri, { preview: false });
+
+      const filePath = path.join(workspaceFolder.uri.fsPath, fileName);
+      const document = await vscode.workspace.openTextDocument(filePath);
+      await vscode.window.showTextDocument(document);
     } catch (error) {
-      vscode.window.showErrorMessage(`Failed to open file: ${fileName}`);
+      console.error("Error opening file:", error);
+      vscode.window.showErrorMessage(
+        `Failed to open file: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     }
   }
 
   private async ensureReviewPanelVisible(): Promise<void> {
-    Logger.logDebug(
-      debugOutputChannel,
-      `[ReviewPanel] Ensuring review panel visible:`,
-      {
-        hasView: !!this._view,
-        isVisible: this._view?.visible,
-        viewType: this._view?.viewType,
-      }
-    );
-
-    if (this._view && this._view.visible) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Review panel already visible`
-      );
-      return;
-    }
-
-    try {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Attempting to focus review panel`
-      );
-      await vscode.commands.executeCommand("aiReviewer.reviewPanel.focus");
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Successfully focused review panel`
-      );
-    } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Failed to focus review panel:`,
-        error
-      );
-      console.warn("Failed to focus review panel:", error);
-    }
+    // Focus the review panel
+    await vscode.commands.executeCommand("aiReviewer.reviewPanel.focus");
   }
 
   private replaceRelativePaths(
     htmlContent: string,
     webview: vscode.Webview
   ): string {
-    return htmlContent;
+    return htmlContent.replace(
+      /(src|href)=["']([^"']+)["']/g,
+      (match, attr, url) => {
+        if (url.startsWith("http") || url.startsWith("data:")) {
+          return match;
+        }
+        const uri = vscode.Uri.joinPath(this._extensionUri, url);
+        const webviewUri = webview.asWebviewUri(uri);
+        return `${attr}="${webviewUri}"`;
+      }
+    );
   }
 
   private getFallbackHtml(): string {
     return `
       <!DOCTYPE html>
-      <html>
-          <head>
-              <meta charset="UTF-8">
-          <title>Review Panel</title>
-          </head>
-          <body>
-          <h3>Review Panel</h3>
-          <p>Error loading review panel. Please check the extension configuration.</p>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Review Panel</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          .error { color: red; }
+        </style>
+      </head>
+      <body>
+        <h2>Review Panel</h2>
+        <p class="error">Failed to load review panel template.</p>
       </body>
       </html>
     `;
   }
 
-  // AI Agent Workflow Methods
-  public async sendAgentWorkflow(workflow: AgentWorkflow): Promise<void> {
-    try {
-      await this.sendMessageWithRetry({
-        type: "agentWorkflow",
-        workflow: workflow,
-      });
-
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Sent agent workflow:`,
-        {
-          id: workflow.id,
-          stepsCount: workflow.steps.length,
-          currentStep: workflow.currentStep,
-        }
-      );
-    } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Error sending agent workflow:`,
-        error
-      );
-    }
+  private escapeHtml(text: string): string {
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 
-  public async updateAgentStepResult(result: AgentStepResult): Promise<void> {
-    try {
-      await this.sendMessageWithRetry({
-        type: "agentStepResult",
-        result: result,
-      });
+  private getSeverityBreakdown(violations: any[]): string {
+    const breakdown = violations.reduce((acc: any, violation: any) => {
+      const severity = violation.severity || "medium";
+      acc[severity] = (acc[severity] || 0) + 1;
+      return acc;
+    }, {});
 
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Sent agent step result:`,
-        {
-          stepId: result.stepId,
-          success: result.success,
-          hasError: !!result.error,
-        }
-      );
-    } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Error sending agent step result:`,
-        error
-      );
-    }
-  }
-
-  public async updateAgentWorkflow(workflow: AgentWorkflow | null): Promise<void> {
-    try {
-      await this.sendMessageWithRetry({
-        type: "updateAgentWorkflow",
-        workflow: workflow,
-      });
-
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Updated agent workflow:`,
-        {
-          hasWorkflow: !!workflow,
-          currentStep: workflow?.currentStep,
-          status: workflow?.status,
-        }
-      );
-    } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Error updating agent workflow:`,
-        error
-      );
-    }
-  }
-
-  public async completeAgentWorkflow(): Promise<void> {
-    try {
-      await this.sendMessageWithRetry({
-        type: "completeAgentWorkflow",
-      });
-
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Completed agent workflow`
-      );
-    } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Error completing agent workflow:`,
-        error
-      );
-    }
-  }
-
-  public async clearAgentWorkflow(): Promise<void> {
-    try {
-      await this.sendMessageWithRetry({
-        type: "clearAgentWorkflow",
-      });
-
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Cleared agent workflow`
-      );
-    } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[ReviewPanel] Error clearing agent workflow:`,
-        error
-      );
-    }
+    return Object.entries(breakdown)
+      .map(([severity, count]) => `${severity}: ${count}`)
+      .join(", ");
   }
 }

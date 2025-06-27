@@ -1,11 +1,11 @@
 import * as vscode from "vscode";
 import { Logger, VSCodeUtils, debugOutputChannel } from "../utils";
 import { AgentManager } from "../core/managers/AgentManager";
-import { ReviewPanelProvider } from "../ui/panels/ReviewPanelProvider";
+import { AgentPanelProvider } from "../ui/panels/AgentPanelProvider";
 
 export class AgentCommands {
   constructor(
-    private reviewPanelProvider: ReviewPanelProvider
+    private agentPanelProvider: AgentPanelProvider
   ) {}
 
   /**
@@ -18,23 +18,14 @@ export class AgentCommands {
       // Tạo prompt cho LLM để tạo workflow
       const prompt = this.createWorkflowPrompt();
 
-      Logger.logDebug(debugOutputChannel, `[Agent] Creating workflow with prompt`);
-
       // Tạo workflow từ LLM
       const workflow = await agentManager.createWorkflowFromLLM(prompt);
 
       // Hiển thị workflow trong review panel
-      await this.reviewPanelProvider.sendAgentWorkflow(workflow);
+      await this.agentPanelProvider.sendAgentWorkflow(workflow);
 
       VSCodeUtils.showSuccess(`AI Agent workflow created with ${workflow.steps.length} steps`);
-
-      Logger.logDebug(debugOutputChannel, `[Agent] Workflow created:`, {
-        id: workflow.id,
-        stepsCount: workflow.steps.length,
-        summary: workflow.summary
-      });
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[Agent] Error creating workflow:`, error);
       VSCodeUtils.handleError(error, "Creating AI Agent workflow");
     }
   }
@@ -46,23 +37,18 @@ export class AgentCommands {
     try {
       const agentManager = AgentManager.getInstance();
 
-      Logger.logDebug(debugOutputChannel, `[Agent] Executing current step`);
-
       // Thực thi step hiện tại
       const result = await agentManager.executeCurrentStep();
 
       // Cập nhật UI với kết quả
-      await this.reviewPanelProvider.updateAgentStepResult(result);
+      await this.agentPanelProvider.updateAgentStepResult(result);
 
       if (result.success) {
         VSCodeUtils.showSuccess(`Step completed: ${result.stepId}`);
       } else {
         VSCodeUtils.showError(`Step failed: ${result.error}`);
       }
-
-      Logger.logDebug(debugOutputChannel, `[Agent] Step execution result:`, result);
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[Agent] Error executing step:`, error);
       VSCodeUtils.handleError(error, "Executing AI Agent step");
     }
   }
@@ -87,8 +73,6 @@ export class AgentCommands {
         return;
       }
 
-      Logger.logDebug(debugOutputChannel, `[Agent] Executing step ${stepId} (index: ${stepIndex})`);
-
       // Lưu step hiện tại
       const currentStepIndex = workflow.currentStep;
 
@@ -99,23 +83,20 @@ export class AgentCommands {
       const result = await agentManager.executeCurrentStep();
 
       // Cập nhật UI với kết quả
-      await this.reviewPanelProvider.updateAgentStepResult(result);
+      await this.agentPanelProvider.updateAgentStepResult(result);
 
       // Khôi phục step hiện tại
       workflow.currentStep = currentStepIndex;
 
       // Cập nhật UI với workflow
-      await this.reviewPanelProvider.updateAgentWorkflow(workflow);
+      await this.agentPanelProvider.updateAgentWorkflow(workflow);
 
       if (result.success) {
         VSCodeUtils.showSuccess(`Step '${stepId}' completed successfully`);
       } else {
         VSCodeUtils.showError(`Step '${stepId}' failed: ${result.error}`);
       }
-
-      Logger.logDebug(debugOutputChannel, `[Agent] Step execution result:`, result);
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[Agent] Error executing step ${stepId}:`, error);
       VSCodeUtils.handleError(error, `Executing AI Agent step ${stepId}`);
     }
   }
@@ -127,24 +108,19 @@ export class AgentCommands {
     try {
       const agentManager = AgentManager.getInstance();
 
-      Logger.logDebug(debugOutputChannel, `[Agent] Moving to next step`);
-
       // Chuyển sang step tiếp theo
       const hasNext = await agentManager.nextStep();
 
       if (hasNext) {
         // Cập nhật UI với step mới
-        await this.reviewPanelProvider.updateAgentWorkflow(agentManager.getCurrentWorkflow());
+        await this.agentPanelProvider.updateAgentWorkflow(agentManager.getCurrentWorkflow());
         VSCodeUtils.showSuccess("Moved to next step");
       } else {
         // Workflow completed
-        await this.reviewPanelProvider.completeAgentWorkflow();
+        await this.agentPanelProvider.completeAgentWorkflow();
         VSCodeUtils.showSuccess("AI Agent workflow completed!");
       }
-
-      Logger.logDebug(debugOutputChannel, `[Agent] Next step result:`, { hasNext });
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[Agent] Error moving to next step:`, error);
       VSCodeUtils.handleError(error, "Moving to next AI Agent step");
     }
   }
@@ -161,11 +137,6 @@ export class AgentCommands {
         VSCodeUtils.showError("No active workflow to execute");
         return;
       }
-
-      Logger.logDebug(debugOutputChannel, `[Agent] Executing full workflow:`, {
-        id: workflow.id,
-        stepsCount: workflow.steps.length
-      });
 
       await vscode.window.withProgress(
         {
@@ -190,19 +161,18 @@ export class AgentCommands {
               const result = await agentManager.executeCurrentStep();
 
               // Cập nhật UI
-              await this.reviewPanelProvider.updateAgentStepResult(result);
+              await this.agentPanelProvider.updateAgentStepResult(result);
 
               // Chuyển sang step tiếp theo (trừ step cuối)
               if (i < workflow.steps.length - 1) {
                 await agentManager.nextStep();
-                await this.reviewPanelProvider.updateAgentWorkflow(workflow);
+                await this.agentPanelProvider.updateAgentWorkflow(workflow);
               }
 
               // Delay nhỏ để user có thể theo dõi
               await new Promise(resolve => setTimeout(resolve, 1000));
 
             } catch (error) {
-              Logger.logDebug(debugOutputChannel, `[Agent] Step ${i + 1} failed:`, error);
               VSCodeUtils.showError(`Step ${i + 1} failed: ${error}`);
               break;
             }
@@ -213,7 +183,6 @@ export class AgentCommands {
       VSCodeUtils.showSuccess("AI Agent workflow execution completed");
 
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[Agent] Error executing full workflow:`, error);
       VSCodeUtils.handleError(error, "Executing AI Agent workflow");
     }
   }
@@ -228,15 +197,12 @@ export class AgentCommands {
 
       if (workflow) {
         agentManager.clearWorkflow(workflow.id);
-        await this.reviewPanelProvider.clearAgentWorkflow();
+        await this.agentPanelProvider.clearAgentWorkflow();
         VSCodeUtils.showSuccess("AI Agent workflow cleared");
       } else {
         VSCodeUtils.showWarning("No active workflow to clear");
       }
-
-      Logger.logDebug(debugOutputChannel, `[Agent] Workflow cleared`);
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[Agent] Error clearing workflow:`, error);
       VSCodeUtils.handleError(error, "Clearing AI Agent workflow");
     }
   }

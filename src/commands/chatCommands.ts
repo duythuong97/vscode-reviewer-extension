@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { Logger, VSCodeUtils, debugOutputChannel } from "../utils";
+import { VSCodeUtils } from "../utils";
 import { ChatPanelProvider } from "../ui/panels/ChatPanelProvider";
 import { ChatHistoryManager } from "../core/managers/ChatHistoryManager";
 import { ViolationStorageManager } from "../services/storage/managers/ViolationStorageManager";
@@ -22,8 +22,6 @@ export class ChatCommands {
           "workbench.view.extension.ai-reviewer-sidebar"
         );
       }
-
-      Logger.logDebug(debugOutputChannel, `[Chat] Focused chat panel`);
     } catch (error) {
       VSCodeUtils.handleError(error, "Focusing chat panel");
     }
@@ -51,11 +49,6 @@ export class ChatCommands {
       });
 
       await vscode.window.showTextDocument(document);
-
-      Logger.logDebug(debugOutputChannel, `[Chat] Viewed chat history`, {
-        messageCount: history.messages.length,
-        sessionId: history.id,
-      });
     } catch (error) {
       VSCodeUtils.handleError(error, "Viewing chat history");
     }
@@ -63,8 +56,6 @@ export class ChatCommands {
 
   public async clearChatHistory(): Promise<void> {
     try {
-      Logger.logDebug(debugOutputChannel, "Clearing chat history");
-
       const result = await vscode.window.showWarningMessage(
         "Are you sure you want to clear all chat history? This action cannot be undone.",
         { modal: true },
@@ -76,7 +67,6 @@ export class ChatCommands {
         await this.chatPanelProvider.clearChatPanel();
 
         VSCodeUtils.showSuccess("Chat history cleared successfully.");
-        Logger.logDebug(debugOutputChannel, `[Chat] Cleared all chat history`);
       }
     } catch (error) {
       VSCodeUtils.handleError(error, "Clearing chat history");
@@ -89,7 +79,6 @@ export class ChatCommands {
       await this.chatPanelProvider.clearChatPanel();
 
       VSCodeUtils.showSuccess("New chat session created.");
-      Logger.logDebug(debugOutputChannel, `[Chat] Created new chat session`);
     } catch (error) {
       VSCodeUtils.handleError(error, "Creating new chat session");
     }

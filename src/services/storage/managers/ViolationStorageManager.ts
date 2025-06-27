@@ -1,7 +1,3 @@
-import * as vscode from "vscode";
-import { Logger, VSCodeUtils, debugOutputChannel } from "../../../utils";
-import * as path from "path";
-import * as fs from "fs";
 import { FileViolationStorage } from "./FileViolationStorage";
 
 export interface Violation {
@@ -62,10 +58,6 @@ export class ViolationStorageManager {
   // Method to switch storage implementation (for future API migration)
   public setStorage(storage: ViolationStorage): void {
     this.storage = storage;
-    Logger.logDebug(
-      debugOutputChannel,
-      `[ViolationStorageManager] Storage implementation changed`
-    );
   }
 
   public async saveReviewResult(result: ReviewResult): Promise<boolean> {

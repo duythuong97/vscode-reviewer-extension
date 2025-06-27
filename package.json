@@ -175,6 +175,11 @@
           "id": "aiReviewer.reviewPanel",
           "name": "Review Panel",
           "type": "webview"
+        },
+        {
+          "id": "aiReviewer.agentPanel",
+          "name": "Agent Panel",
+          "type": "webview"
         }
       ]
     },
@@ -305,6 +310,22 @@
         "title": "AI Reviewer: Clear Workflow"
       },
       {
+        "command": "ai-reviewer.generateUnitTests",
+        "title": "AI Reviewer: Generate Unit Tests for Current File"
+      },
+      {
+        "command": "ai-reviewer.generateUnitTestsForFile",
+        "title": "AI Reviewer: Generate Unit Tests for Selected File"
+      },
+      {
+        "command": "ai-reviewer.retryUnitTestGeneration",
+        "title": "AI Reviewer: Retry Unit Test Generation"
+      },
+      {
+        "command": "ai-reviewer.resetUnitTestAgent",
+        "title": "AI Reviewer: Reset Unit Test Agent"
+      },
+      {
         "command": "ai-reviewer.openWorkspaceCommands",
         "title": "AI Reviewer: Open Workspace Commands"
       },
@@ -350,6 +371,11 @@
           "command": "ai-reviewer.reviewFile",
           "when": "editorTextFocus",
           "group": "ai-reviewer@1"
+        },
+        {
+          "command": "ai-reviewer.generateUnitTests",
+          "when": "editorTextFocus && resourceExtname == .cs",
+          "group": "ai-reviewer@2"
         },
         {
           "command": "ai-reviewer.reviewPR",
@@ -409,6 +435,25 @@
         },
         {
           "command": "ai-reviewer.searchInWorkspace"
+        },
+        {
+          "command": "ai-reviewer.clearWorkflow"
+        },
+        {
+          "command": "ai-reviewer.generateUnitTests",
+          "when": "editorTextFocus && resourceExtname == .cs"
+        },
+        {
+          "command": "ai-reviewer.generateUnitTestsForFile"
+        },
+        {
+          "command": "ai-reviewer.retryUnitTestGeneration"
+        },
+        {
+          "command": "ai-reviewer.resetUnitTestAgent"
+        },
+        {
+          "command": "ai-reviewer.openWorkspaceCommands"
         }
       ]
     }
@@ -430,6 +475,7 @@
     "test": "vscode-test"
   },
   "devDependencies": {
+    "@types/handlebars-helpers": "^0.5.6",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
     "@types/vscode": "^1.101.0",
@@ -444,8 +490,12 @@
     "@types/json5": "^0.0.30",
     "@types/marked": "^5.0.2",
     "@types/strip-json-comments": "^0.0.30",
+    "@xstate/vue": "^5.0.0",
+    "handlebars": "^4.7.8",
+    "handlebars-helpers": "^0.10.0",
     "json5": "^2.2.3",
     "marked": "^15.0.12",
-    "strip-json-comments": "^5.0.2"
+    "strip-json-comments": "^5.0.2",
+    "xstate": "^5.20.0"
   }
 }

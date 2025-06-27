@@ -1,7 +1,6 @@
 import * as vscode from "vscode";
-import { Logger, debugOutputChannel } from '../../../utils';
-import { BaseLLMProvider } from './BaseLLMProvider';
-import { LLMConfig, LLMResponse, LLMAPIResponse } from '../../../types/llm';
+import { BaseLLMProvider } from "./BaseLLMProvider";
+import { LLMResponse, LLMAPIResponse } from "../../../types/llm";
 
 // Concrete implementation for Ollama/OpenAI-compatible API
 export class OllamaLLMProvider extends BaseLLMProvider {
@@ -17,16 +16,12 @@ export class OllamaLLMProvider extends BaseLLMProvider {
       },
       async (progress, cancellationToken) => {
         try {
-          Logger.logDebug(
-            debugOutputChannel,
-            `[LLM] Starting request to ${this.config.endpoint}`
-          );
           progress.report({ message: "Connecting to LLM..." });
 
           const requestBody = this.buildRequestBody(prompt, false);
 
           progress.report({ message: "Sending request..." });
-          Logger.logDebug(debugOutputChannel, `[LLM] Request body:`, requestBody);
+          console.log("Sending request:", requestBody);
 
           const response = await fetch(this.config.endpoint, {
             method: "POST",
@@ -38,15 +33,7 @@ export class OllamaLLMProvider extends BaseLLMProvider {
 
           if (response.ok) {
             const data = (await response.json()) as LLMAPIResponse;
-            Logger.logDebug(
-              debugOutputChannel,
-              `[LLM] Response received successfully`,
-              {
-                responseLength: data?.response?.length || 0,
-                usage: data.usage,
-              }
-            );
-
+            console.log("Call LLM Response:", data);
             progress.report({ message: "Response processed successfully" });
 
             return {
@@ -81,16 +68,11 @@ export class OllamaLLMProvider extends BaseLLMProvider {
       },
       async (progress, progressCancellationToken) => {
         try {
-          Logger.logDebug(
-            debugOutputChannel,
-            `[LLM] Starting streaming request to ${this.config.endpoint}`
-          );
           progress.report({ message: "Connecting to LLM..." });
 
           const requestBody = this.buildRequestBody(prompt, true);
 
           progress.report({ message: "Sending streaming request..." });
-          Logger.logDebug(debugOutputChannel, `[LLM] Streaming request body:`, requestBody);
 
           const response = await fetch(this.config.endpoint, {
             method: "POST",
@@ -117,29 +99,34 @@ export class OllamaLLMProvider extends BaseLLMProvider {
             const processStream = async () => {
               while (true) {
                 // Check for cancellation
-                if (cancellationToken.isCancellationRequested || progressCancellationToken.isCancellationRequested) {
-                  Logger.logDebug(debugOutputChannel, `[LLM] Streaming cancelled`);
+                if (
+                  cancellationToken.isCancellationRequested ||
+                  progressCancellationToken.isCancellationRequested
+                ) {
                   break;
                 }
 
                 const { done, value } = await reader.read();
 
                 if (done) {
-                  Logger.logDebug(debugOutputChannel, `[LLM] Streaming completed`);
                   break;
                 }
 
                 const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\n');
+                const lines = chunk.split("\n");
 
                 for (const line of lines) {
-                  if (line.trim() === "") {continue;}
+                  if (line.trim() === "") {
+                    continue;
+                  }
 
                   try {
                     const jsonStr = line.startsWith("data: ")
                       ? line.slice(6)
                       : line;
-                    if (jsonStr === "[DONE]") {continue;}
+                    if (jsonStr === "[DONE]") {
+                      continue;
+                    }
 
                     const data = JSON.parse(jsonStr) as LLMAPIResponse;
                     const content = data?.response || "";
@@ -148,9 +135,7 @@ export class OllamaLLMProvider extends BaseLLMProvider {
                       onChunk(content);
                       progress.report({ message: "Receiving response..." });
                     }
-                  } catch (parseError) {
-                    Logger.logDebug(debugOutputChannel, `[LLM] Error parsing streaming chunk:`, parseError);
-                  }
+                  } catch (parseError) {}
                 }
               }
             };

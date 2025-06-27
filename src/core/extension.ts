@@ -1,12 +1,12 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
-import { Logger, debugOutputChannel } from "../utils/logging/Logger";
 
 // Import from new structure
 import { ConfigManager } from "./managers/ConfigManager";
 import { ChatPanelProvider } from "../ui/panels/ChatPanelProvider";
 import { ReviewPanelProvider } from "../ui/panels/ReviewPanelProvider";
+import { AgentPanelProvider } from "../ui/panels/AgentPanelProvider";
 import { SettingsPanelProvider } from "../ui/panels/SettingsPanelProvider";
 import { WorkspaceCommandsPanel } from "../ui/panels/WorkspaceCommandsPanel";
 import { GhostTextProvider } from "../ui/ghostText/GhostTextProvider";
@@ -16,8 +16,6 @@ import { WorkspaceCommands } from "../commands/WorkspaceCommands";
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext) {
-  Logger.logDebug(debugOutputChannel, "AI Reviewer extension is now active!");
-
   try {
     // Initialize ConfigManager
     const configManager = ConfigManager.getInstance();
@@ -25,11 +23,6 @@ export async function activate(context: vscode.ExtensionContext) {
     // Validate configuration
     const validation = configManager.validateConfig();
     if (!validation.isValid) {
-      Logger.logDebug(
-        debugOutputChannel,
-        "Configuration validation failed",
-        validation.errors
-      );
       vscode.window.showWarningMessage(
         `AI Reviewer configuration has issues: ${validation.errors.join(", ")}`
       );
@@ -64,8 +57,21 @@ export async function activate(context: vscode.ExtensionContext) {
       )
     );
 
+    // Create agent panel provider
+    const agentPanelProvider = new AgentPanelProvider(context.extensionUri);
+    context.subscriptions.push(
+      vscode.window.registerWebviewViewProvider(
+        AgentPanelProvider.viewType,
+        agentPanelProvider
+      )
+    );
+
     // Register commands using CommandManager
-    const commandManager = CommandManager.getInstance(chatPanelProvider, reviewPanelProvider);
+    const commandManager = CommandManager.getInstance(
+      chatPanelProvider,
+      reviewPanelProvider,
+      agentPanelProvider
+    );
     commandManager.registerCommands(context);
 
     // Initialize workspace indexing
@@ -73,30 +79,33 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Register workspace commands
     context.subscriptions.push(
-      vscode.commands.registerCommand('ai-reviewer.indexWorkspace', () => {
+      vscode.commands.registerCommand("ai-reviewer.indexWorkspace", () => {
         workspaceCommands.indexWorkspace();
       }),
-      vscode.commands.registerCommand('ai-reviewer.refreshCurrentFile', () => {
+      vscode.commands.registerCommand("ai-reviewer.refreshCurrentFile", () => {
         workspaceCommands.refreshCurrentFile();
       }),
-      vscode.commands.registerCommand('ai-reviewer.showWorkspaceInfo', () => {
+      vscode.commands.registerCommand("ai-reviewer.showWorkspaceInfo", () => {
         workspaceCommands.showWorkspaceInfo();
       }),
-      vscode.commands.registerCommand('ai-reviewer.saveIndex', () => {
+      vscode.commands.registerCommand("ai-reviewer.saveIndex", () => {
         workspaceCommands.saveIndex();
       }),
-      vscode.commands.registerCommand('ai-reviewer.loadIndex', () => {
+      vscode.commands.registerCommand("ai-reviewer.loadIndex", () => {
         workspaceCommands.loadIndex();
       }),
-      vscode.commands.registerCommand('ai-reviewer.clearIndex', () => {
+      vscode.commands.registerCommand("ai-reviewer.clearIndex", () => {
         workspaceCommands.clearIndex();
       }),
-      vscode.commands.registerCommand('ai-reviewer.searchInWorkspace', () => {
+      vscode.commands.registerCommand("ai-reviewer.searchInWorkspace", () => {
         workspaceCommands.searchInWorkspace();
       }),
-      vscode.commands.registerCommand('ai-reviewer.openWorkspaceCommands', () => {
-        WorkspaceCommandsPanel.createOrShow(context.extensionUri);
-      })
+      vscode.commands.registerCommand(
+        "ai-reviewer.openWorkspaceCommands",
+        () => {
+          WorkspaceCommandsPanel.createOrShow(context.extensionUri);
+        }
+      )
     );
 
     // Start workspace indexing on activation (optional)
@@ -104,9 +113,7 @@ export async function activate(context: vscode.ExtensionContext) {
     if (uiConfig.autoIndexWorkspace !== false) {
       // Delay indexing to avoid blocking extension activation
       setTimeout(() => {
-        workspaceCommands.indexWorkspaceOnOpen().catch(error => {
-          Logger.logDebug(debugOutputChannel, "Auto workspace indexing failed:", error);
-        });
+        workspaceCommands.indexWorkspaceOnOpen().catch((error) => {});
       }, 2000);
     }
 
@@ -121,19 +128,13 @@ export async function activate(context: vscode.ExtensionContext) {
         )
       );
     }
-
-    Logger.logDebug(
-      debugOutputChannel,
-      "AI Reviewer extension initialized successfully"
-    );
   } catch (error) {
-    Logger.logDebug(debugOutputChannel, "Extension activation failed:", error);
     vscode.window.showErrorMessage(
-      `Extension activation failed: ${error instanceof Error ? error.message : error}`
+      `Extension activation failed: ${
+        error instanceof Error ? error.message : error
+      }`
     );
   }
 }
 
-export function deactivate() {
-  Logger.logDebug(debugOutputChannel, "AI Reviewer extension is now deactivated");
-}
+export function deactivate() {}

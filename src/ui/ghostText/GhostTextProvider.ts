@@ -1,8 +1,7 @@
 import * as vscode from "vscode";
-import { Logger, VSCodeUtils, debugOutputChannel } from '../../utils';
-import { LLMProviderFactory } from '../../services/llm/providers';
-import { PromptManager } from '../../core/Prompts';
-import { ConfigManager } from '../../core/managers/ConfigManager';
+import { LLMProviderFactory } from "../../services/llm/providers";
+import { PromptManager } from "../../core/Prompts";
+import { ConfigManager } from "../../core/managers/ConfigManager";
 
 export class GhostTextProvider implements vscode.InlineCompletionItemProvider {
   private _isEnabled: boolean = true;
@@ -37,10 +36,13 @@ export class GhostTextProvider implements vscode.InlineCompletionItemProvider {
     return new Promise((resolve) => {
       this._debounceTimer = setTimeout(async () => {
         try {
-          const suggestions = await this.generateSuggestions(document, position, context);
+          const suggestions = await this.generateSuggestions(
+            document,
+            position,
+            context
+          );
           resolve(suggestions);
         } catch (error) {
-          Logger.logDebug(debugOutputChannel, "Error generating ghost text suggestions", error);
           resolve(undefined);
         }
       }, 500); // 500ms debounce
@@ -55,7 +57,6 @@ export class GhostTextProvider implements vscode.InlineCompletionItemProvider {
     const config = this.getConfiguration();
 
     if (!config.apiToken) {
-      Logger.logDebug(debugOutputChannel, "Ghost text: No API token configured");
       return undefined;
     }
 
@@ -66,7 +67,6 @@ export class GhostTextProvider implements vscode.InlineCompletionItemProvider {
 
     // More permissive condition - show suggestions when typing or at end of line
     if (cursorPosition < lineText.length && lineText.trim() === "") {
-      Logger.logDebug(debugOutputChannel, "Ghost text: Skipping empty line");
       return undefined;
     }
 
@@ -79,13 +79,6 @@ export class GhostTextProvider implements vscode.InlineCompletionItemProvider {
       !currentWord.includes("[") &&
       !currentWord.includes("{")
     ) {
-      Logger.logDebug(
-        debugOutputChannel,
-        "Ghost text: In middle of word, skipping",
-        {
-          currentWord,
-        }
-      );
       return undefined;
     }
 
@@ -101,14 +94,6 @@ export class GhostTextProvider implements vscode.InlineCompletionItemProvider {
     const contextString = contextText.join("\n");
     const currentLinePrefix = lineText.substring(0, cursorPosition);
 
-    Logger.logDebug(debugOutputChannel, "Ghost text: Generating suggestion", {
-      language: document.languageId,
-      currentLine: currentLinePrefix,
-      contextLines: contextText.length,
-      cursorPosition: cursorPosition,
-      lineLength: lineText.length,
-    });
-
     // Create prompt for AI suggestion
     const promptManager = PromptManager.getInstance();
     const prompt = promptManager.getGhostTextPrompt(
@@ -121,13 +106,6 @@ export class GhostTextProvider implements vscode.InlineCompletionItemProvider {
       const llmResponse = await llmProvider.callLLM(prompt);
       const suggestion = llmResponse.content;
 
-      Logger.logDebug(debugOutputChannel, "Ghost text: LLM response received", {
-        originalSuggestion:
-          suggestion?.substring(0, 100) +
-          (suggestion && suggestion.length > 100 ? "..." : ""),
-        suggestionLength: suggestion?.length || 0,
-      });
-
       if (suggestion && suggestion.trim()) {
         // Clean and format the suggestion
         const cleanedSuggestion = this.cleanSuggestion(
@@ -135,16 +113,9 @@ export class GhostTextProvider implements vscode.InlineCompletionItemProvider {
           currentLinePrefix
         );
 
-        Logger.logDebug(debugOutputChannel, "Ghost text: Cleaned suggestion", {
-          cleanedSuggestion: cleanedSuggestion,
-          cleanedLength: cleanedSuggestion.length,
-        });
-
         if (cleanedSuggestion) {
           // Ensure the suggestion is properly formatted for VS Code
-          const finalSuggestion = cleanedSuggestion
-            .replace(/\n/g, " ")
-            .trim();
+          const finalSuggestion = cleanedSuggestion.replace(/\n/g, " ").trim();
 
           if (finalSuggestion.length > 0) {
             const completionItem = new vscode.InlineCompletionItem(
@@ -155,26 +126,12 @@ export class GhostTextProvider implements vscode.InlineCompletionItemProvider {
             // Don't add command - let VS Code handle Tab key naturally
             // This prevents double insertion
 
-            Logger.logDebug(
-              debugOutputChannel,
-              "Ghost text: Returning completion item",
-              {
-                suggestion: finalSuggestion,
-                position: position.toString(),
-                suggestionLength: finalSuggestion.length,
-              }
-            );
-
             return [completionItem];
           }
         }
       }
     } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        "Error calling LLM for ghost text:",
-        error
-      );
+      // Error calling LLM for ghost text
     }
 
     return undefined;
@@ -215,7 +172,7 @@ export class GhostTextProvider implements vscode.InlineCompletionItemProvider {
     const config = this.configManager.getConfig();
     return {
       apiToken: config.apiToken,
-      codingConvention: config.codingConvention
+      codingConvention: config.codingConvention,
     };
   }
 }

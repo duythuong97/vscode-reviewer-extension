@@ -70,7 +70,6 @@ export class ChatHistoryManager {
       title: `Chat Session ${new Date().toLocaleString()}`
     };
 
-    Logger.logDebug(debugOutputChannel, `[ChatHistory] Started new session: ${sessionId}`);
     return sessionId;
   }
 
@@ -98,7 +97,6 @@ export class ChatHistoryManager {
     // Auto-save after each message
     this.saveCurrentSession();
 
-    Logger.logDebug(debugOutputChannel, `[ChatHistory] Added ${isUser ? 'user' : 'AI'} message to session ${this.currentSession!.id}`);
   }
 
   /**
@@ -148,7 +146,6 @@ export class ChatHistoryManager {
       // Sort by timestamp (newest first)
       return sessions.sort((a, b) => b.timestamp - a.timestamp);
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[ChatHistory] Error reading sessions: ${error}`);
       return [];
     }
   }
@@ -162,7 +159,6 @@ export class ChatHistoryManager {
 
     if (session) {
       this.currentSession = session;
-      Logger.logDebug(debugOutputChannel, `[ChatHistory] Loaded session: ${sessionId}`);
       return session;
     }
 
@@ -202,9 +198,7 @@ export class ChatHistoryManager {
       // Save to file
       fs.writeFileSync(this.dbPath, JSON.stringify(sessions, null, 2));
 
-      Logger.logDebug(debugOutputChannel, `[ChatHistory] Saved session: ${this.currentSession.id}`);
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[ChatHistory] Error saving session: ${error}`);
     }
   }
 
@@ -223,10 +217,8 @@ export class ChatHistoryManager {
         this.currentSession = null;
       }
 
-      Logger.logDebug(debugOutputChannel, `[ChatHistory] Deleted session: ${sessionId}`);
       return true;
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[ChatHistory] Error deleting session: ${error}`);
       return false;
     }
   }
@@ -241,10 +233,8 @@ export class ChatHistoryManager {
       }
       this.currentSession = null;
 
-      Logger.logDebug(debugOutputChannel, `[ChatHistory] Cleared all history`);
       return true;
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[ChatHistory] Error clearing history: ${error}`);
       return false;
     }
   }
@@ -311,10 +301,8 @@ export class ChatHistoryManager {
       const sessions = await this.getAllSessions();
       if (sessions.length > 0) {
         this.currentSession = sessions[0]; // Most recent session (already sorted)
-        Logger.logDebug(debugOutputChannel, `[ChatHistory] Auto-loaded most recent session: ${this.currentSession.id}`);
       }
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[ChatHistory] Error auto-loading most recent session: ${error}`);
     }
   }
 
@@ -326,12 +314,10 @@ export class ChatHistoryManager {
       const sessions = await this.getAllSessions();
       if (sessions.length > 0) {
         this.currentSession = sessions[0];
-        Logger.logDebug(debugOutputChannel, `[ChatHistory] Force-loaded most recent session: ${this.currentSession.id}`);
         return true;
       }
       return false;
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[ChatHistory] Error force-loading most recent session: ${error}`);
       return false;
     }
   }

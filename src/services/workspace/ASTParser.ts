@@ -57,7 +57,6 @@ export abstract class BaseASTParser {
       const content = await fs.promises.readFile(file.path, 'utf-8');
       return content;
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[ASTParser] Error reading file ${file.path}:`, error);
       throw error;
     }
   }
@@ -150,7 +149,6 @@ export class TypeScriptASTParser extends BaseASTParser {
 
       return parsedFile;
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[TypeScriptASTParser] Error parsing ${file.path}:`, error);
       return this.createErrorParsedFile(file, error instanceof Error ? error.message : 'Unknown error');
     }
   }
@@ -459,7 +457,6 @@ export class PythonASTParser extends BaseASTParser {
 
       return parsedFile;
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[PythonASTParser] Error parsing ${file.path}:`, error);
       return this.createErrorParsedFile(file, error instanceof Error ? error.message : 'Unknown error');
     }
   }

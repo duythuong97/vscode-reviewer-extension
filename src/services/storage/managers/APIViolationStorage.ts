@@ -3,7 +3,6 @@ import {
   ReviewResult,
   ViolationStorage,
 } from "../../../types/violation";
-import { Logger, debugOutputChannel } from "../../../utils";
 
 export class APIViolationStorage implements ViolationStorage {
   private apiEndpoint: string;
@@ -26,11 +25,6 @@ export class APIViolationStorage implements ViolationStorage {
       });
       return response.ok;
     } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[APIViolationStorage] Failed to save review result:`,
-        error
-      );
       return false;
     }
   }
@@ -47,11 +41,6 @@ export class APIViolationStorage implements ViolationStorage {
       }
       return [];
     } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[APIViolationStorage] Failed to load review results:`,
-        error
-      );
       return [];
     }
   }
@@ -68,11 +57,6 @@ export class APIViolationStorage implements ViolationStorage {
       }
       return null;
     } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[APIViolationStorage] Failed to load review result by ID ${id}:`,
-        error
-      );
       return null;
     }
   }
@@ -87,11 +71,6 @@ export class APIViolationStorage implements ViolationStorage {
       });
       return response.ok;
     } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[APIViolationStorage] Failed to delete review result ${id}:`,
-        error
-      );
       return false;
     }
   }
@@ -106,11 +85,6 @@ export class APIViolationStorage implements ViolationStorage {
       });
       return response.ok;
     } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[APIViolationStorage] Failed to clear all results:`,
-        error
-      );
       return false;
     }
   }
@@ -135,11 +109,6 @@ export class APIViolationStorage implements ViolationStorage {
       );
       return response.ok;
     } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[APIViolationStorage] Failed to update violation status:`,
-        error
-      );
       return false;
     }
   }
@@ -161,19 +130,10 @@ export class APIViolationStorage implements ViolationStorage {
           approved: Violation[];
           rejected: Violation[];
         };
-        Logger.logDebug(
-          debugOutputChannel,
-          `[APIViolationStorage] Loaded ${approved.length} approved and ${rejected.length} rejected violations for file ${file}`
-        );
         return { approved, rejected };
       }
       return { approved: [], rejected: [] };
     } catch (error) {
-      Logger.logDebug(
-        debugOutputChannel,
-        `[APIViolationStorage] Failed to load violations for re-review:`,
-        error
-      );
       return { approved: [], rejected: [] };
     }
   }

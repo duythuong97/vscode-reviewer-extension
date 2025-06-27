@@ -28,30 +28,17 @@ export class ReviewCommands {
     const fileName =
       document.fileName.split(/[\\/]/).pop() || document.fileName;
 
-    Logger.logDebug(
-      debugOutputChannel,
-      `[Review] Starting review for file: ${fileName}`
-    );
-
     await vscode.window.withProgress(
       VSCodeUtils.createProgressOptions(`Reviewing ${fileName}...`),
       async (progress) => {
         try {
           progress.report({ message: "Reading file content..." });
           const fileContent = document.getText();
-          Logger.logDebug(
-            debugOutputChannel,
-            `[Review] File content length: ${fileContent.length}`
-          );
 
           progress.report({ message: "Preparing review prompt..." });
           const prompt = await this.promptManager.getCodeReviewPrompt(
             document,
             fileContent
-          );
-          Logger.logDebug(
-            debugOutputChannel,
-            `[Review] Prompt length: ${prompt.length}`
           );
 
           progress.report({ message: "Sending to AI for review..." });
@@ -68,18 +55,9 @@ export class ReviewCommands {
           );
 
           const response = { content: responseContent };
-          Logger.logDebug(
-            debugOutputChannel,
-            `[Review] AI response received, length: ${response.content.length}`
-          );
 
           progress.report({ message: "Processing review results..." });
           const reviewData = JsonExtractor.extractJSONFromResponse(response.content);
-          Logger.logDebug(
-            debugOutputChannel,
-            `[Review] Extracted review data:`,
-            reviewData
-          );
 
           if (!reviewData) {
             throw new Error("Failed to parse review results from AI response");
@@ -93,12 +71,6 @@ export class ReviewCommands {
             reviewData.summary = "Review completed";
           }
 
-          Logger.logDebug(debugOutputChannel, `[Review] Processed review data:`, {
-            violationsCount: reviewData.violations.length,
-            hasSummary: !!reviewData.summary,
-            violations: reviewData.violations,
-          });
-
           // Save review results
           const reviewId = await this.violationStorageManager.saveReviewResult({
             id: Date.now().toString(),
@@ -109,11 +81,6 @@ export class ReviewCommands {
             status: "completed",
           });
 
-          Logger.logDebug(
-            debugOutputChannel,
-            `[Review] Saved review result with ID: ${reviewId}`
-          );
-
           // Show results in review panel
           await this.reviewPanelProvider.sendReviewResults(
             reviewData,
@@ -121,16 +88,7 @@ export class ReviewCommands {
           );
 
           VSCodeUtils.showSuccess(`Review completed for ${fileName}`);
-          Logger.logDebug(
-            debugOutputChannel,
-            `[Review] Completed review for ${fileName}`,
-            {
-              reviewId,
-              violationsCount: reviewData.violations?.length || 0,
-            }
-          );
         } catch (error) {
-          Logger.logDebug(debugOutputChannel, `[Review] Error during review:`, error);
           VSCodeUtils.handleError(error, `Reviewing ${fileName}`);
         }
       }
@@ -142,12 +100,6 @@ export class ReviewCommands {
     const baseBranch = config.baseBranch;
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 
-    Logger.logDebug(debugOutputChannel, `[ReviewPR] Starting PR review:`, {
-      baseBranch: baseBranch,
-      workspaceFolder: workspaceFolder?.uri.fsPath,
-      config: config
-    });
-
     if (!workspaceFolder) {
       vscode.window.showErrorMessage("No workspace folder found!");
       return;
@@ -156,12 +108,7 @@ export class ReviewCommands {
     let changedFiles: { name: string; path: string }[] = [];
     try {
       changedFiles = await GitHelper.getChangedFiles(repoPath, baseBranch);
-      Logger.logDebug(debugOutputChannel, `[ReviewPR] Found changed files:`, {
-        count: changedFiles.length,
-        files: changedFiles.map(f => f.path)
-      });
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, `[ReviewPR] Error getting changed files:`, error);
       vscode.window.showErrorMessage(`Failed to get changed files: ${error}`);
       return;
     }
@@ -239,15 +186,6 @@ export class ReviewCommands {
             );
             response = { content: responseContent };
 
-            // Log LLM response if debugMode is enabled
-            if (this.configManager.getConfig().debugMode) {
-              Logger.logDebug(
-                debugOutputChannel,
-                `[LLM Response] reviewPR for ${filePath}`,
-                response.content
-              );
-            }
-
             // Use improved JSON extraction
             violations = JsonExtractor.extractJSONFromResponse(response.content);
           } catch (error) {
@@ -282,24 +220,8 @@ export class ReviewCommands {
             }
           }
 
-          Logger.logDebug(
-            debugOutputChannel,
-            `[ReviewPR] Normalized violations for ${filePath}:`,
-            {
-              originalViolations: violations,
-              violationsArray: violationsArray,
-              summary: summary,
-            }
-          );
-
           // Send violations to review panel
           try {
-            Logger.logDebug(debugOutputChannel, `[ReviewPR] Sending review results to Review panel:`, {
-              file: filePath,
-              violationsCount: violationsArray.length,
-              summary: summary
-            });
-
             // Send review results to review panel (this will handle focusing the panel)
             await this.reviewPanelProvider.sendReviewResults(
               {
@@ -309,8 +231,6 @@ export class ReviewCommands {
               },
               filePath
             );
-
-            Logger.logDebug(debugOutputChannel, `[ReviewPR] Successfully sent review results for ${filePath}`);
 
             // Save review result to storage
             const reviewResult =
@@ -323,16 +243,9 @@ export class ReviewCommands {
 
             const saveSuccess =
               await this.violationStorageManager.saveReviewResult(reviewResult);
-            if (!saveSuccess) {
-              Logger.logDebug(
-                debugOutputChannel,
-                `[ReviewPR] Failed to save review result for ${filePath}`
-              );
-            }
 
             successCount++;
           } catch (error) {
-            Logger.logDebug(debugOutputChannel, `[ReviewPR] Error sending review results:`, error);
             vscode.window.showWarningMessage(
               `Failed to send review results to review panel for file ${filePath}: ${error}`
             );
@@ -447,15 +360,6 @@ export class ReviewCommands {
           );
 
           VSCodeUtils.showSuccess(`Re-review completed for ${fileName}`);
-          Logger.logDebug(
-            debugOutputChannel,
-            `[ReReview] Completed re-review for ${fileName}`,
-            {
-              reviewId,
-              previousReviewId: previousReview.id,
-              violationsCount: reviewData.violations?.length || 0,
-            }
-          );
         } catch (error) {
           VSCodeUtils.handleError(error, `Re-reviewing ${fileName}`);
         }

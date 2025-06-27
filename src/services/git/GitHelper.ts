@@ -1,5 +1,3 @@
-import { Logger, VSCodeUtils, debugOutputChannel } from '../../utils';
-
 export class GitHelper {
   static async getCurrentBranch(repoPath: string): Promise<string | null> {
     try {
@@ -10,7 +8,6 @@ export class GitHelper {
       });
       return result.trim();
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, "Error getting current branch", error);
       return null;
     }
   }
@@ -53,7 +50,6 @@ export class GitHelper {
         path: file,
       }));
     } catch (error) {
-      Logger.logDebug(debugOutputChannel, "Error getting changed files", error);
       throw new Error("Failed to get changed files from git");
     }
   }
