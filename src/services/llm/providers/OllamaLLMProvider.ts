@@ -21,7 +21,7 @@ export class OllamaLLMProvider extends BaseLLMProvider {
           const requestBody = this.buildRequestBody(prompt, false);
 
           progress.report({ message: "Sending request..." });
-          console.log("Sending request:", requestBody);
+          console.log("Sending request:", prompt);
 
           const response = await fetch(this.config.endpoint, {
             method: "POST",
@@ -33,7 +33,7 @@ export class OllamaLLMProvider extends BaseLLMProvider {
 
           if (response.ok) {
             const data = (await response.json()) as LLMAPIResponse;
-            console.log("Call LLM Response:", data);
+            console.log("Call LLM Response:", data?.response);
             progress.report({ message: "Response processed successfully" });
 
             return {

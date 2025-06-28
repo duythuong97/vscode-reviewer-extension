@@ -1,6 +1,6 @@
 <div class="agent-workflow">
     <div class="workflow-header">
-        <div class="workflow-title">🤖 AI Agent Workflow</div>
+        <div class="workflow-title">{{workflow.title}}</div>
         <div class="workflow-status {{workflow.status}}">{{workflow.status}}</div>
     </div>
 
@@ -23,6 +23,9 @@
                 {{#if this.parameters}}
                 <br><strong>Parameters:</strong> {{json this.parameters}}
                 {{/if}}
+            </div>
+            <div class="step-command">
+                <strong>Type:</strong> {{this.type}}
             </div>
             <div class="step-actions">
                 {{#if (eq this.status 'completed')}}

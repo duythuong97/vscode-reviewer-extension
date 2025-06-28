@@ -274,88 +274,8 @@
         "title": "AI Reviewer: Re-review with Feedback"
       },
       {
-        "command": "ai-reviewer.debugChatHistory",
-        "title": "AI Reviewer: Debug Chat History"
-      },
-      {
-        "command": "ai-reviewer.debugApplyCode",
-        "title": "AI Reviewer: Debug Apply Code"
-      },
-      {
-        "command": "ai-reviewer.debugJsonExtraction",
-        "title": "AI Reviewer: Debug JSON Extraction"
-      },
-      {
-        "command": "ai-reviewer.createAgentWorkflow",
-        "title": "AI Reviewer: Create Agent Workflow"
-      },
-      {
-        "command": "ai-reviewer.executeCurrentStep",
-        "title": "AI Reviewer: Execute Current Step"
-      },
-      {
-        "command": "ai-reviewer.executeStep",
-        "title": "AI Reviewer: Execute Step"
-      },
-      {
-        "command": "ai-reviewer.nextStep",
-        "title": "AI Reviewer: Next Step"
-      },
-      {
-        "command": "ai-reviewer.executeFullWorkflow",
-        "title": "AI Reviewer: Execute Full Workflow"
-      },
-      {
-        "command": "ai-reviewer.clearWorkflow",
-        "title": "AI Reviewer: Clear Workflow"
-      },
-      {
         "command": "ai-reviewer.generateUnitTests",
         "title": "AI Reviewer: Generate Unit Tests for Current File"
-      },
-      {
-        "command": "ai-reviewer.generateUnitTestsForFile",
-        "title": "AI Reviewer: Generate Unit Tests for Selected File"
-      },
-      {
-        "command": "ai-reviewer.retryUnitTestGeneration",
-        "title": "AI Reviewer: Retry Unit Test Generation"
-      },
-      {
-        "command": "ai-reviewer.resetUnitTestAgent",
-        "title": "AI Reviewer: Reset Unit Test Agent"
-      },
-      {
-        "command": "ai-reviewer.openWorkspaceCommands",
-        "title": "AI Reviewer: Open Workspace Commands"
-      },
-      {
-        "command": "ai-reviewer.indexWorkspace",
-        "title": "AI Reviewer: Index Workspace"
-      },
-      {
-        "command": "ai-reviewer.refreshCurrentFile",
-        "title": "AI Reviewer: Refresh Current File"
-      },
-      {
-        "command": "ai-reviewer.showWorkspaceInfo",
-        "title": "AI Reviewer: Show Workspace Info"
-      },
-      {
-        "command": "ai-reviewer.saveIndex",
-        "title": "AI Reviewer: Save Index"
-      },
-      {
-        "command": "ai-reviewer.loadIndex",
-        "title": "AI Reviewer: Load Index"
-      },
-      {
-        "command": "ai-reviewer.clearIndex",
-        "title": "AI Reviewer: Clear Index"
-      },
-      {
-        "command": "ai-reviewer.searchInWorkspace",
-        "title": "AI Reviewer: Search in Workspace"
       }
     ],
     "menus": {
@@ -413,47 +333,8 @@
           "command": "ai-reviewer.showLLMStatus"
         },
         {
-          "command": "ai-reviewer.openWorkspaceCommands"
-        },
-        {
-          "command": "ai-reviewer.indexWorkspace"
-        },
-        {
-          "command": "ai-reviewer.refreshCurrentFile"
-        },
-        {
-          "command": "ai-reviewer.showWorkspaceInfo"
-        },
-        {
-          "command": "ai-reviewer.saveIndex"
-        },
-        {
-          "command": "ai-reviewer.loadIndex"
-        },
-        {
-          "command": "ai-reviewer.clearIndex"
-        },
-        {
-          "command": "ai-reviewer.searchInWorkspace"
-        },
-        {
-          "command": "ai-reviewer.clearWorkflow"
-        },
-        {
           "command": "ai-reviewer.generateUnitTests",
           "when": "editorTextFocus && resourceExtname == .cs"
-        },
-        {
-          "command": "ai-reviewer.generateUnitTestsForFile"
-        },
-        {
-          "command": "ai-reviewer.retryUnitTestGeneration"
-        },
-        {
-          "command": "ai-reviewer.resetUnitTestAgent"
-        },
-        {
-          "command": "ai-reviewer.openWorkspaceCommands"
         }
       ]
     }

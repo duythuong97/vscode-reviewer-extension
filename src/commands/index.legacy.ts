@@ -13,20 +13,19 @@ import { ChatCommands } from "./ChatCommands";
 import { GhostTextCommands } from "./GhostTextCommands";
 import { TemplateCommands } from "./TemplateCommands";
 import { UtilityCommands } from "./UtilityCommands";
-import { AgentCommands } from "./AgentCommands";
-import { UnitTestCommands } from "./UnitTestCommands";
+import { UnitTestGeneratorTask } from "../agents/tasks";
 
+import { AgentTaskContext } from "../agents/types/agent";
 
 export class CommandManager {
   private static instance: CommandManager;
-  private reviewCommands: ReviewCommands;
-  private settingsCommands: SettingsCommands;
-  private chatCommands: ChatCommands;
-  private ghostTextCommands: GhostTextCommands;
-  private templateCommands: TemplateCommands;
-  private utilityCommands: UtilityCommands;
-  private agentCommands: AgentCommands;
-  private unitTestCommands: UnitTestCommands;
+  private readonly reviewCommands: ReviewCommands;
+  private readonly settingsCommands: SettingsCommands;
+  private readonly chatCommands: ChatCommands;
+  private readonly ghostTextCommands: GhostTextCommands;
+  private readonly templateCommands: TemplateCommands;
+  private readonly utilityCommands: UtilityCommands;
+  private readonly unitTestGeneratorTask: UnitTestGeneratorTask;
 
   private constructor(
     chatPanelProvider: ChatPanelProvider,
@@ -37,7 +36,9 @@ export class CommandManager {
     const promptManager = PromptManager.getInstance();
     const chatHistoryManager = ChatHistoryManager.getInstance();
     const violationStorageManager = ViolationStorageManager.getInstance();
-    const settingsPanelProvider = new SettingsPanelProvider(vscode.Uri.file(__dirname));
+    const settingsPanelProvider = new SettingsPanelProvider(
+      vscode.Uri.file(__dirname)
+    );
 
     this.reviewCommands = new ReviewCommands(
       reviewPanelProvider,
@@ -62,10 +63,13 @@ export class CommandManager {
     this.templateCommands = new TemplateCommands(promptManager);
 
     this.utilityCommands = new UtilityCommands(violationStorageManager);
-
-    this.agentCommands = new AgentCommands(agentPanelProvider);
-
-    this.unitTestCommands = new UnitTestCommands(agentPanelProvider);
+    this.unitTestGeneratorTask = new UnitTestGeneratorTask(
+      "UT Generator",
+      (context: AgentTaskContext<any>) => {
+        console.log("Unit Test Generator Task State:", context);
+        agentPanelProvider.rendertWorkflow(context.workflow);
+      }
+    );
   }
 
   public static getInstance(
@@ -74,7 +78,11 @@ export class CommandManager {
     agentPanelProvider: AgentPanelProvider
   ): CommandManager {
     if (!CommandManager.instance) {
-      CommandManager.instance = new CommandManager(chatPanelProvider, reviewPanelProvider, agentPanelProvider);
+      CommandManager.instance = new CommandManager(
+        chatPanelProvider,
+        reviewPanelProvider,
+        agentPanelProvider
+      );
     }
     return CommandManager.instance;
   }
@@ -226,72 +234,20 @@ export class CommandManager {
       )
     );
 
-    // Register agent commands
-    context.subscriptions.push(
-      vscode.commands.registerCommand("ai-reviewer.createAgentWorkflow", () =>
-        this.agentCommands.createAgentWorkflow()
-      )
-    );
-
-    context.subscriptions.push(
-      vscode.commands.registerCommand("ai-reviewer.executeCurrentStep", () =>
-        this.agentCommands.executeCurrentStep()
-      )
-    );
-
-    context.subscriptions.push(
-      vscode.commands.registerCommand("ai-reviewer.executeStep", (stepId: string) =>
-        this.agentCommands.executeStep(stepId)
-      )
-    );
-
-    context.subscriptions.push(
-      vscode.commands.registerCommand("ai-reviewer.nextStep", () =>
-        this.agentCommands.nextStep()
-      )
-    );
-
-    context.subscriptions.push(
-      vscode.commands.registerCommand("ai-reviewer.executeFullWorkflow", () =>
-        this.agentCommands.executeFullWorkflow()
-      )
-    );
-
-    context.subscriptions.push(
-      vscode.commands.registerCommand("ai-reviewer.clearWorkflow", () =>
-        this.agentCommands.clearWorkflow()
-      )
-    );
-
-    // Register unit test commands
     context.subscriptions.push(
       vscode.commands.registerCommand("ai-reviewer.generateUnitTests", () =>
-        this.unitTestCommands.generateUnitTestsForCurrentFile()
-      )
-    );
-
-    context.subscriptions.push(
-      vscode.commands.registerCommand("ai-reviewer.generateUnitTestsForFile", () =>
-        this.unitTestCommands.generateUnitTestsForSelectedFile()
-      )
-    );
-
-    context.subscriptions.push(
-      vscode.commands.registerCommand("ai-reviewer.retryUnitTestGeneration", () =>
-        this.unitTestCommands.retryUnitTestGeneration()
-      )
-    );
-
-    context.subscriptions.push(
-      vscode.commands.registerCommand("ai-reviewer.resetUnitTestAgent", () =>
-        this.unitTestCommands.resetUnitTestAgent()
+        this.unitTestGeneratorTask.start({
+          filePath: vscode.window.activeTextEditor?.document.uri.fsPath || "",
+        })
       )
     );
   }
 
   private async focusReviewPanel(): Promise<void> {
     try {
-      await vscode.commands.executeCommand("workbench.view.extension.ai-reviewer-review-sidebar");
+      await vscode.commands.executeCommand(
+        "workbench.view.extension.ai-reviewer-review-sidebar"
+      );
     } catch (error) {
       console.warn("Failed to focus review panel:", error);
     }
@@ -299,7 +255,9 @@ export class CommandManager {
 
   private async focusSettingsPanel(): Promise<void> {
     try {
-      await vscode.commands.executeCommand("workbench.view.extension.ai-reviewer-settings-sidebar");
+      await vscode.commands.executeCommand(
+        "workbench.view.extension.ai-reviewer-settings-sidebar"
+      );
     } catch (error) {
       console.warn("Failed to focus settings panel:", error);
     }
